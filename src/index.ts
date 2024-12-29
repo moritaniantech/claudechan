@@ -9,36 +9,53 @@ app.get("/", (c) => {
 });
 
 app.post("/slack/events", async (c) => {
-  const payload = await c.req.json();
-  console.log(
-    "Received Slack webhook payload:",
-    JSON.stringify(payload, null, 2)
-  );
+  try {
+    const payload = await c.req.json();
+    console.log(
+      "Received Slack webhook payload:",
+      JSON.stringify(payload, null, 2)
+    );
 
-  // URL Verification
-  if (payload.type === "url_verification") {
-    console.log("Processing URL verification challenge");
-    return c.json({ challenge: payload.challenge });
-  }
+    // URL Verification
+    if (payload.type === "url_verification") {
+      console.log("Processing URL verification challenge");
+      return c.json({ challenge: payload.challenge });
+    }
 
-  console.log("Triggering Make scenario with event type:", payload.type);
-  // makeのシナリオを実行
-  const makeResponse = await triggerMakeScenario(payload, c.env);
-
-  if (!makeResponse.ok) {
-    console.error("Failed to trigger Make scenario:", {
-      error: makeResponse.error,
-      eventType: payload.type,
+    console.log("Triggering Make scenario with event type:", {
+      type: payload.type,
+      team_id: payload.team_id,
+      api_app_id: payload.api_app_id,
       timestamp: new Date().toISOString(),
     });
-    return c.json({ ok: false, error: makeResponse.error }, 500);
-  }
 
-  console.log("Successfully triggered Make scenario:", {
-    eventType: payload.type,
-    timestamp: new Date().toISOString(),
-  });
-  return c.json({ ok: true });
+    const makeResponse = await triggerMakeScenario(payload, c.env);
+
+    if (!makeResponse.ok) {
+      console.error("Failed to trigger Make scenario:", {
+        error: makeResponse.error,
+        eventType: payload.type,
+        team_id: payload.team_id,
+        timestamp: new Date().toISOString(),
+      });
+      return c.json({ ok: false, error: makeResponse.error }, 500);
+    }
+
+    console.log("Successfully triggered Make scenario:", {
+      eventType: payload.type,
+      team_id: payload.team_id,
+      timestamp: new Date().toISOString(),
+      response: makeResponse.data,
+    });
+    return c.json({ ok: true });
+  } catch (error) {
+    console.error("Error processing Slack event:", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    return c.json({ ok: false, error: "Internal server error" }, 500);
+  }
 });
 
 export default app;
