@@ -1,6 +1,6 @@
 import { Context } from "hono";
 import { CloudflareBindings } from "../types";
-import { triggerMakeScenario } from "../utils/makeApi";
+import { sendToWebhook } from "../utils/webhook";
 import {
   SlackMessageService,
   SlackMessage,
@@ -80,13 +80,8 @@ export async function slackEventsHandler(
               });
             }
 
-            // Make scenarioにデータを送信
-            const makePayload = {
-              ...payload,
-              threadMessages: threadMessages,
-            };
-
-            console.log("Preparing Make scenario payload:", {
+            // Webhookにデータを送信
+            console.log("Preparing webhook payload:", {
               type: payload.type,
               team_id: payload.team_id,
               api_app_id: payload.api_app_id,
@@ -94,11 +89,15 @@ export async function slackEventsHandler(
               threadMessagesCount: threadMessages.length,
             });
 
-            const makeResponse = await triggerMakeScenario(makePayload, c.env);
+            const webhookResponse = await sendToWebhook(
+              payload,
+              threadMessages,
+              c.env
+            );
 
-            if (!makeResponse.ok) {
-              console.error("Failed to trigger Make scenario:", {
-                error: makeResponse.error,
+            if (!webhookResponse.ok) {
+              console.error("Failed to send to webhook:", {
+                error: webhookResponse.error,
                 eventType: payload.type,
                 team_id: payload.team_id,
                 timestamp: new Date().toISOString(),
@@ -106,11 +105,11 @@ export async function slackEventsHandler(
               return;
             }
 
-            console.log("Successfully triggered Make scenario:", {
+            console.log("Successfully sent to webhook:", {
               eventType: payload.type,
               team_id: payload.team_id,
               timestamp: new Date().toISOString(),
-              response: makeResponse.data,
+              response: webhookResponse.data,
             });
           } else {
             console.log("Skipping non-message event:", {
