@@ -50,6 +50,11 @@ enabled = true
 # database_name = "my-database"
 # database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "claudechan-chathistory"
+database_id = "2318efd5-3d21-4987-881d-ebe7d1a7c02c"
+
 # Bind a dispatch namespace. Use Workers for Platforms to deploy serverless functions programmatically on behalf of your customers.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#dispatch-namespace-bindings-workers-for-platforms
 # [[dispatch_namespaces]]
