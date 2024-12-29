@@ -22,31 +22,41 @@ app.post("/slack/events", async (c) => {
       return c.json({ challenge: payload.challenge });
     }
 
-    console.log("Triggering Make scenario with event type:", {
-      type: payload.type,
-      team_id: payload.team_id,
-      api_app_id: payload.api_app_id,
-      timestamp: new Date().toISOString(),
-    });
+    // 即座に200 OKレスポンスを返す
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          console.log("Triggering Make scenario with event type:", {
+            type: payload.type,
+            team_id: payload.team_id,
+            api_app_id: payload.api_app_id,
+            timestamp: new Date().toISOString(),
+          });
 
-    const makeResponse = await triggerMakeScenario(payload, c.env);
+          const makeResponse = await triggerMakeScenario(payload, c.env);
 
-    if (!makeResponse.ok) {
-      console.error("Failed to trigger Make scenario:", {
-        error: makeResponse.error,
-        eventType: payload.type,
-        team_id: payload.team_id,
-        timestamp: new Date().toISOString(),
-      });
-      return c.json({ ok: false, error: makeResponse.error }, 500);
-    }
+          if (!makeResponse.ok) {
+            console.error("Failed to trigger Make scenario:", {
+              error: makeResponse.error,
+              eventType: payload.type,
+              team_id: payload.team_id,
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
 
-    console.log("Successfully triggered Make scenario:", {
-      eventType: payload.type,
-      team_id: payload.team_id,
-      timestamp: new Date().toISOString(),
-      response: makeResponse.data,
-    });
+          console.log("Successfully triggered Make scenario:", {
+            eventType: payload.type,
+            team_id: payload.team_id,
+            timestamp: new Date().toISOString(),
+            response: makeResponse.data,
+          });
+        } catch (error) {
+          console.error("Error in background processing:", error);
+        }
+      })()
+    );
+
     return c.json({ ok: true });
   } catch (error) {
     console.error("Error processing Slack event:", {
