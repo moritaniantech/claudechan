@@ -6,7 +6,7 @@ export async function triggerMakeScenario(
 ) {
   try {
     const response = await fetch(
-      `https://eu1.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
+      `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
       {
         method: "POST",
         headers: {
