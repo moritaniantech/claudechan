@@ -71,7 +71,6 @@ export class SlackMessageService {
       console.log("Attempting to find thread messages:", {
         threadTimestamp,
       });
-
       const stmt = this.db.prepare(
         `SELECT channelTimestamp as channel_timestamp,
                 timestamp,
@@ -79,7 +78,7 @@ export class SlackMessageService {
                 channelId as channel_id,
                 text
          FROM chathistory
-         WHERE threadTimestamp = ?
+         WHERE threadTimestamp = ? OR timestamp = ?
          ORDER BY timestamp ASC`
       );
 
