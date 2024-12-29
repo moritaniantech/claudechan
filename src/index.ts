@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { CloudflareBindings } from "./types";
 import { triggerMakeScenario } from "./utils/makeApi";
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
@@ -16,10 +17,7 @@ app.post("/slack/events", async (c) => {
   }
 
   // makeのシナリオを実行
-  const makeResponse = await triggerMakeScenario(payload, {
-    apiToken: c.env.MAKE_API_TOKEN,
-    scenarioId: c.env.MAKE_SCENARIO_ID,
-  });
+  const makeResponse = await triggerMakeScenario(payload, c.env);
 
   if (!makeResponse.ok) {
     console.error("Failed to trigger Make scenario:", makeResponse.error);
