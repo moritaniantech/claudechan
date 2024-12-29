@@ -5,24 +5,28 @@ export async function triggerMakeScenario(
   env: CloudflareBindings
 ) {
   try {
-    console.log(
-      "Starting Make scenario trigger with payload:",
-      JSON.stringify(payload, null, 2)
-    );
+    console.log("Starting Make scenario trigger with configuration:", {
+      hasMakeScenarioId: !!env.MAKE_SCENARIO_ID,
+      hasMakeApiToken: !!env.MAKE_API_TOKEN,
+      payloadSize: JSON.stringify(payload).length,
+      timestamp: new Date().toISOString(),
+    });
 
     if (!env.MAKE_SCENARIO_ID || !env.MAKE_API_TOKEN) {
       console.error("環境変数が設定されていません", {
         hasMakeScenarioId: !!env.MAKE_SCENARIO_ID,
         hasMakeApiToken: !!env.MAKE_API_TOKEN,
+        timestamp: new Date().toISOString(),
       });
       throw new Error(
         "Missing required environment variables: MAKE_SCENARIO_ID or MAKE_API_TOKEN"
       );
     }
 
-    console.log("Sending request to Make API...", {
+    console.log("Preparing Make API request:", {
       scenarioId: env.MAKE_SCENARIO_ID,
       url: `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
+      timestamp: new Date().toISOString(),
     });
 
     const formattedPayload = {
@@ -31,6 +35,11 @@ export async function triggerMakeScenario(
       },
       responsive: false,
     };
+
+    console.log("Sending request to Make API with payload size:", {
+      payloadSize: JSON.stringify(formattedPayload).length,
+      timestamp: new Date().toISOString(),
+    });
 
     const response = await fetch(
       `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
@@ -48,6 +57,7 @@ export async function triggerMakeScenario(
       status: response.status,
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
+      timestamp: new Date().toISOString(),
     });
 
     const responseText = await response.text();
@@ -57,11 +67,15 @@ export async function triggerMakeScenario(
 
     try {
       responseData = JSON.parse(responseText);
-      console.log("Parsed response data:", responseData);
+      console.log("Parsed response data:", {
+        data: responseData,
+        timestamp: new Date().toISOString(),
+      });
     } catch (e) {
       console.error("Failed to parse Make API response as JSON:", {
         responseText,
         error: e instanceof Error ? e.message : "Unknown parsing error",
+        timestamp: new Date().toISOString(),
       });
       responseData = responseText;
     }
@@ -71,6 +85,7 @@ export async function triggerMakeScenario(
       console.error(error, {
         responseData,
         requestPayload: payload,
+        timestamp: new Date().toISOString(),
       });
       return {
         ok: false,
@@ -78,7 +93,9 @@ export async function triggerMakeScenario(
       };
     }
 
-    console.log("Successfully triggered Make scenario");
+    console.log("Successfully completed Make scenario trigger", {
+      timestamp: new Date().toISOString(),
+    });
     return {
       ok: true,
       data: responseData,
@@ -90,6 +107,7 @@ export async function triggerMakeScenario(
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
       payload,
+      timestamp: new Date().toISOString(),
     });
     return {
       ok: false,
