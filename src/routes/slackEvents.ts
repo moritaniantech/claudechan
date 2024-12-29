@@ -10,6 +10,7 @@ export async function slackEventsHandler(
   c: Context<{ Bindings: CloudflareBindings }>
 ) {
   try {
+    console.log("Starting to process incoming request");
     const payload = await c.req.json();
     console.log(
       "Received Slack webhook payload:",
@@ -26,93 +27,130 @@ export async function slackEventsHandler(
     c.executionCtx.waitUntil(
       (async () => {
         try {
+          console.log("Initializing SlackMessageService");
           const messageService = new SlackMessageService(c.env.DB);
 
           // イベントがメッセージの場合のみ処理
           if (payload.event && payload.event.type === "app_mention") {
             const event = payload.event;
-            console.log("Processing message event:", {
+            console.log("Processing app_mention event:", {
               channel: event.channel,
               timestamp: event.ts,
               threadTs: event.thread_ts,
               hasText: !!event.text,
               messageType: event.subtype || "app_mention",
+              user: event.user,
+              eventId: event.event_id,
             });
 
-            // メッセージをD1に保存
-            const messageData: SlackMessage = {
-              channelTimestamp: `${event.channel}-${event.ts}`,
-              timestamp: event.ts,
-              threadTimestamp: event.thread_ts,
-              channelId: event.channel,
-              text: event.text,
-            };
+            try {
+              // メッセージをD1に保存
+              const messageData: SlackMessage = {
+                channelTimestamp: `${event.channel}-${event.ts}`,
+                timestamp: event.ts,
+                threadTimestamp: event.thread_ts,
+                channelId: event.channel,
+                text: event.text,
+              };
 
-            console.log("Saving message to D1:", {
-              channelTimestamp: messageData.channelTimestamp,
-              timestamp: messageData.timestamp,
-              threadTimestamp: messageData.threadTimestamp,
-              channelId: messageData.channelId,
-              textLength: messageData.text.length,
-            });
-
-            await messageService.saveMessage(messageData);
-            console.log("Successfully saved message to D1");
-
-            // スレッドメッセージの場合、関連メッセージを取得
-            let threadMessages: SlackMessage[] = [];
-            if (event.thread_ts) {
-              console.log(
-                "Fetching thread messages for thread_ts:",
-                event.thread_ts
-              );
-              threadMessages = await messageService.findThreadMessages(
-                event.thread_ts
-              );
-              console.log("Retrieved thread messages:", {
-                threadTs: event.thread_ts,
-                messageCount: threadMessages.length,
-                messages: threadMessages.map((msg) => ({
-                  timestamp: msg.timestamp,
-                  channelId: msg.channelId,
-                  textLength: msg.text.length,
-                })),
+              console.log("Attempting to save message to database:", {
+                channelTimestamp: messageData.channelTimestamp,
+                timestamp: messageData.timestamp,
+                threadTimestamp: messageData.threadTimestamp,
+                channelId: messageData.channelId,
+                textLength: messageData.text.length,
               });
-            }
 
-            // Webhookにデータを送信
-            console.log("Preparing webhook payload:", {
-              type: payload.type,
-              team_id: payload.team_id,
-              api_app_id: payload.api_app_id,
-              timestamp: new Date().toISOString(),
-              threadMessagesCount: threadMessages.length,
-            });
+              await messageService.saveMessage(messageData);
+              console.log("Successfully saved message to database");
 
-            const webhookResponse = await sendToWebhook(
-              payload,
-              threadMessages,
-              c.env
-            );
+              // スレッドメッセージの場合、関連メッセージを取得
+              let threadMessages: SlackMessage[] = [];
+              if (event.thread_ts) {
+                console.log(
+                  "Attempting to fetch thread messages for thread_ts:",
+                  event.thread_ts
+                );
+                try {
+                  threadMessages = await messageService.findThreadMessages(
+                    event.thread_ts
+                  );
+                  console.log("Successfully retrieved thread messages:", {
+                    threadTs: event.thread_ts,
+                    messageCount: threadMessages.length,
+                    messages: threadMessages.map((msg) => ({
+                      timestamp: msg.timestamp,
+                      channelId: msg.channelId,
+                      textLength: msg.text.length,
+                    })),
+                  });
+                } catch (error) {
+                  console.error("Error fetching thread messages:", {
+                    error:
+                      error instanceof Error ? error.message : "Unknown error",
+                    stack: error instanceof Error ? error.stack : undefined,
+                    threadTs: event.thread_ts,
+                  });
+                  // スレッドメッセージの取得に失敗しても処理は続行
+                }
+              }
 
-            if (!webhookResponse.ok) {
-              console.error("Failed to send to webhook:", {
-                error: webhookResponse.error,
-                eventType: payload.type,
+              // Webhookにデータを送信
+              console.log("Preparing webhook payload:", {
+                type: payload.type,
                 team_id: payload.team_id,
+                api_app_id: payload.api_app_id,
                 timestamp: new Date().toISOString(),
+                threadMessagesCount: threadMessages.length,
               });
-              return;
-            }
 
-            console.log("Successfully sent to webhook:", {
-              eventType: payload.type,
-              team_id: payload.team_id,
-              timestamp: new Date().toISOString(),
-              response: webhookResponse.data,
-            });
+              try {
+                const webhookResponse = await sendToWebhook(
+                  payload,
+                  threadMessages,
+                  c.env
+                );
+
+                if (!webhookResponse.ok) {
+                  console.error("Failed to send to webhook:", {
+                    error: webhookResponse.error,
+                    eventType: payload.type,
+                    team_id: payload.team_id,
+                    timestamp: new Date().toISOString(),
+                  });
+                  return;
+                }
+
+                console.log("Successfully sent to webhook:", {
+                  eventType: payload.type,
+                  team_id: payload.team_id,
+                  timestamp: new Date().toISOString(),
+                  response: webhookResponse.data,
+                });
+              } catch (error) {
+                console.error("Error sending to webhook:", {
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                  stack: error instanceof Error ? error.stack : undefined,
+                  eventType: payload.type,
+                  team_id: payload.team_id,
+                });
+              }
+            } catch (error) {
+              console.error("Error processing app_mention event:", {
+                error: error instanceof Error ? error.message : "Unknown error",
+                stack: error instanceof Error ? error.stack : undefined,
+                event: {
+                  channel: event.channel,
+                  ts: event.ts,
+                  thread_ts: event.thread_ts,
+                  user: event.user,
+                  event_id: event.event_id,
+                },
+              });
+            }
           } else {
-            console.log("Skipping non-message event:", {
+            console.log("Skipping non-app_mention event:", {
               type: payload.type,
               eventType: payload.event?.type,
               timestamp: new Date().toISOString(),
