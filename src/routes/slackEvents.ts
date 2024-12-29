@@ -29,14 +29,14 @@ export async function slackEventsHandler(
           const messageService = new SlackMessageService(c.env.DB);
 
           // イベントがメッセージの場合のみ処理
-          if (payload.event && payload.event.type === "message") {
+          if (payload.event && payload.event.type === "app_mention") {
             const event = payload.event;
             console.log("Processing message event:", {
               channel: event.channel,
               timestamp: event.ts,
               threadTs: event.thread_ts,
               hasText: !!event.text,
-              messageType: event.subtype || "message",
+              messageType: event.subtype || "app_mention",
             });
 
             // メッセージをD1に保存
