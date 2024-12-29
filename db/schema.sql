@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS chathistory (
   "channelId" TEXT NOT NULL,
   "timestamp" TEXT NOT NULL,
-  "thread-timestamp" TEXT NOT NULL,
+  "threadTimestamp" TEXT NOT NULL,
   "text" TEXT,
-  "channel-timestamp" TEXT PRIMARY KEY NOT NULL
+  "channelTimestamp" TEXT PRIMARY KEY NOT NULL
 );
