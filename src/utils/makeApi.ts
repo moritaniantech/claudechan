@@ -25,6 +25,13 @@ export async function triggerMakeScenario(
       url: `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
     });
 
+    const formattedPayload = {
+      data: {
+        "My collection": payload,
+      },
+      responsive: false,
+    };
+
     const response = await fetch(
       `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
       {
@@ -33,7 +40,7 @@ export async function triggerMakeScenario(
           "Content-Type": "application/json",
           Authorization: `Token ${env.MAKE_API_TOKEN}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formattedPayload),
       }
     );
 
