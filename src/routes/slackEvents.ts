@@ -1,6 +1,7 @@
 import { Context } from "hono";
 import { CloudflareBindings } from "../types";
 import { triggerMakeScenario } from "../utils/makeApi";
+import { SlackMessageService } from "../services/slackMessageService";
 
 export async function slackEventsHandler(
   c: Context<{ Bindings: CloudflareBindings }>
@@ -22,31 +23,61 @@ export async function slackEventsHandler(
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          console.log("Triggering Make scenario with event type:", {
-            type: payload.type,
-            team_id: payload.team_id,
-            api_app_id: payload.api_app_id,
-            timestamp: new Date().toISOString(),
-          });
+          const messageService = new SlackMessageService(c.env.DB);
 
-          const makeResponse = await triggerMakeScenario(payload, c.env);
+          // イベントがメッセージの場合のみ処理
+          if (payload.event && payload.event.type === "message") {
+            const event = payload.event;
 
-          if (!makeResponse.ok) {
-            console.error("Failed to trigger Make scenario:", {
-              error: makeResponse.error,
+            // メッセージをD1に保存
+            await messageService.saveMessage({
+              channelTimestamp: `${event.channel}-${event.ts}`,
+              timestamp: event.ts,
+              threadTimestamp: event.thread_ts,
+              channelId: event.channel,
+              text: event.text,
+            });
+
+            // スレッドメッセージの場合、関連メッセージを取得
+            let threadMessages = [];
+            if (event.thread_ts) {
+              threadMessages = await messageService.findThreadMessages(
+                event.thread_ts
+              );
+            }
+
+            // Make scenarioにデータを送信
+            const makePayload = {
+              ...payload,
+              threadMessages: threadMessages,
+            };
+
+            console.log("Triggering Make scenario with event type:", {
+              type: payload.type,
+              team_id: payload.team_id,
+              api_app_id: payload.api_app_id,
+              timestamp: new Date().toISOString(),
+            });
+
+            const makeResponse = await triggerMakeScenario(makePayload, c.env);
+
+            if (!makeResponse.ok) {
+              console.error("Failed to trigger Make scenario:", {
+                error: makeResponse.error,
+                eventType: payload.type,
+                team_id: payload.team_id,
+                timestamp: new Date().toISOString(),
+              });
+              return;
+            }
+
+            console.log("Successfully triggered Make scenario:", {
               eventType: payload.type,
               team_id: payload.team_id,
               timestamp: new Date().toISOString(),
+              response: makeResponse.data,
             });
-            return;
           }
-
-          console.log("Successfully triggered Make scenario:", {
-            eventType: payload.type,
-            team_id: payload.team_id,
-            timestamp: new Date().toISOString(),
-            response: makeResponse.data,
-          });
         } catch (error) {
           console.error("Error in background processing:", error);
         }
