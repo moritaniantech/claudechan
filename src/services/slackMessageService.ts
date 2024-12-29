@@ -14,15 +14,15 @@ export class SlackMessageService {
   async saveMessage(message: SlackMessage): Promise<void> {
     await this.db
       .prepare(
-        `INSERT INTO slack_messages (channel_timestamp, timestamp, thread_timestamp, channel_id, text)
+        `INSERT INTO chathistory ("channelId", "timestamp", "thread-timestamp", "text", "channel-timestamp")
          VALUES (?, ?, ?, ?, ?)`
       )
       .bind(
-        message.channelTimestamp,
+        message.channelId,
         message.timestamp,
         message.threadTimestamp || null,
-        message.channelId,
-        message.text
+        message.text,
+        message.channelTimestamp
       )
       .run();
   }
@@ -30,10 +30,14 @@ export class SlackMessageService {
   async findThreadMessages(threadTimestamp: string): Promise<SlackMessage[]> {
     const result = await this.db
       .prepare(
-        `SELECT channel_timestamp, timestamp, thread_timestamp, channel_id, text
-         FROM slack_messages
-         WHERE thread_timestamp = ?
-         ORDER BY timestamp ASC`
+        `SELECT "channel-timestamp" as channel_timestamp, 
+                "timestamp",
+                "thread-timestamp" as thread_timestamp,
+                "channelId" as channel_id,
+                "text"
+         FROM chathistory
+         WHERE "thread-timestamp" = ?
+         ORDER BY "timestamp" ASC`
       )
       .bind(threadTimestamp)
       .all();
