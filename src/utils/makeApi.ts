@@ -5,6 +5,8 @@ export async function triggerMakeScenario(
   env: CloudflareBindings
 ) {
   try {
+    console.log("Calling Make API with scenario ID:", env.MAKE_SCENARIO_ID);
+
     const response = await fetch(
       `https://us2.make.com/api/v2/scenarios/${env.MAKE_SCENARIO_ID}/run`,
       {
@@ -18,11 +20,25 @@ export async function triggerMakeScenario(
     );
 
     if (!response.ok) {
-      throw new Error(`Make API error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error("Make API error response:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText,
+      });
+      throw new Error(
+        `Make API error! status: ${response.status}, details: ${errorText}`
+      );
     }
 
+    const responseData = await response.json();
+    console.log("Make API successful response:", responseData);
     return { ok: true };
   } catch (error) {
+    console.error("Make API call failed:", {
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+      timestamp: new Date().toISOString(),
+    });
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
