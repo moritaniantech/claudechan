@@ -2,8 +2,9 @@
 name = "claudechan"
 main = "src/index.ts"
 compatibility_date = "2024-12-24"
+
+# カスタムドメインの設定
 routes = [
-  # 特定のサブドメインのみ
   { pattern = "claudechan.morimori-milk.com/*", zone_name = "morimori-milk.com" }
 ]
 
