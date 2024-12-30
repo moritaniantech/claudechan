@@ -16,12 +16,10 @@ slack.post("/webhook", async (c) => {
 
     // URL検証チャレンジの処理
     if (payload.type === "url_verification") {
-      return new Response(
-        JSON.stringify({
-          challenge: (payload as SlackChallengeRequest).challenge,
-        }),
-        { headers: { "Content-Type": "application/json" } }
-      );
+      return new Response((payload as SlackChallengeRequest).challenge, {
+        status: 200,
+        headers: { "Content-Type": "text/plain" },
+      });
     }
 
     console.log("Received Slack webhook:", {
