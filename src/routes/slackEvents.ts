@@ -21,7 +21,7 @@ export async function slackEventsHandler(
     // URL Verification
     if (payload.type === "url_verification") {
       console.log("Processing URL verification challenge");
-      return c.json({ challenge: payload.challenge });
+      return c.json({ challenge: payload.challenge }, 200);
     }
 
     // 即座に200 OKレスポンスを返す
