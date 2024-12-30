@@ -31,7 +31,7 @@ export async function slackEventsHandler(
           console.log("Initializing SlackMessageService");
           const messageService = new SlackMessageService(c.env.DB);
 
-          // イベントがメッセージの場合のみ処理
+          // イベントがアプリメンションの場合のみ処理
           if (payload.event && payload.event.type === "app_mention") {
             const event = payload.event;
             console.log("Processing app_mention event:", {
