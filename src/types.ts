@@ -1,9 +1,9 @@
-import { D1Database } from "@cloudflare/workers-types";
+export interface SlackChallengeRequest {
+  token: string;
+  challenge: string;
+  type: "url_verification";
+}
 
-export interface CloudflareBindings {
-  MAKE_WEBHOOK_URL: string;
-  DB: D1Database;
-  SLACK_BOT_TOKEN: string;
-  SLACK_SIGNING_SECRET: string;
-  CLAUDE_API_KEY: string;
+export interface SlackChallengeResponse {
+  challenge: string;
 }
