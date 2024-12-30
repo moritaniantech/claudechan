@@ -1,31 +1,22 @@
-import { SlackChallengeRequest, SlackChallengeResponse } from "./types";
+import { Hono } from "hono";
+import { Env } from "./types";
+import slack from "./routes/slack";
 
-export interface Env {
-  // 必要に応じて環境変数を追加
-}
+const app = new Hono<{ Bindings: Env }>();
 
-export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
+// Slackルートをマウント
+app.route("/slack", slack);
 
-    const data = (await request.json()) as SlackChallengeRequest;
+// 404ハンドラー
+app.notFound((c) => {
+  console.log("404 Not Found:", c.req.url);
+  return c.json({ ok: false, error: "Not Found" }, { status: 404 });
+});
 
-    // URL検証チャレンジに応答
-    if (data.type === "url_verification") {
-      const response: SlackChallengeResponse = {
-        challenge: data.challenge,
-      };
-      return new Response(JSON.stringify(response), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+// エラーハンドラー
+app.onError((err, c) => {
+  console.error("Application error:", err);
+  return c.json({ ok: false, error: "Internal Server Error" }, { status: 500 });
+});
 
-    return new Response("OK", { status: 200 });
-  },
-};
+export default app;
