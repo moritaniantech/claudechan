@@ -1,5 +1,5 @@
 {
-  "name": "slack-event-handler",
+  "name": "claudechan",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",

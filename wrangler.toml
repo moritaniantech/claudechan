@@ -1,10 +1,10 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "slack-event-handler"
+name = "claudechan"
 main = "src/index.ts"
 compatibility_date = "2024-12-24"
 routes = [
   # 特定のサブドメインのみ
-  { pattern = "slack-event-handler.morimori-milk.com/*", zone_name = "morimori-milk.com" }
+  { pattern = "claudechan.morimori-milk.com/*", zone_name = "morimori-milk.com" }
 ]
 
 # Workers Logs
@@ -52,8 +52,8 @@ enabled = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "claudechan-chathistory"
-database_id = "2318efd5-3d21-4987-881d-ebe7d1a7c02c"
+database_name = "claudechan"
+database_id = "f1f608d7-7c9c-418c-a880-ffb1b6237cc4"
 
 # Bind a dispatch namespace. Use Workers for Platforms to deploy serverless functions programmatically on behalf of your customers.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#dispatch-namespace-bindings-workers-for-platforms

@@ -3,5 +3,7 @@ CREATE TABLE IF NOT EXISTS chathistory (
   "timestamp" TEXT NOT NULL,
   "threadTimestamp" TEXT,
   "text" TEXT,
-  "channelTimestamp" TEXT PRIMARY KEY NOT NULL
+  "role" TEXT NOT NULL DEFAULT 'user',
+  "channelTimestamp" TEXT PRIMARY KEY NOT NULL,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

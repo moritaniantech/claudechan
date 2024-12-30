@@ -5,6 +5,7 @@ import {
   SlackMessageService,
   SlackMessage,
 } from "../services/slackMessageService";
+import { callClaudeApi } from "../utils/claudeApi";
 
 export async function slackEventsHandler(
   c: Context<{ Bindings: CloudflareBindings }>
@@ -51,18 +52,20 @@ export async function slackEventsHandler(
                 threadTimestamp: event.thread_ts,
                 channelId: event.channel,
                 text: event.text,
+                role: "user",
               };
 
-              console.log("Attempting to save message to database:", {
+              console.log("Attempting to save user message to database:", {
                 channelTimestamp: messageData.channelTimestamp,
                 timestamp: messageData.timestamp,
                 threadTimestamp: messageData.threadTimestamp,
                 channelId: messageData.channelId,
                 textLength: messageData.text.length,
+                role: messageData.role,
               });
 
               await messageService.saveMessage(messageData);
-              console.log("Successfully saved message to database");
+              console.log("Successfully saved user message to database");
 
               // スレッドメッセージの場合、関連メッセージを取得
               let threadMessages: SlackMessage[] = [];
@@ -82,6 +85,7 @@ export async function slackEventsHandler(
                       timestamp: msg.timestamp,
                       channelId: msg.channelId,
                       textLength: msg.text.length,
+                      role: msg.role,
                     })),
                   });
                 } catch (error) {
@@ -95,45 +99,56 @@ export async function slackEventsHandler(
                 }
               }
 
-              // Webhookにデータを送信
-              console.log("Preparing webhook payload:", {
-                type: payload.type,
-                team_id: payload.team_id,
-                api_app_id: payload.api_app_id,
-                timestamp: new Date().toISOString(),
-                threadMessagesCount: threadMessages.length,
-              });
+              // Claude APIを呼び出し
+              console.log("Calling Claude API");
+              const claudeResponse = await callClaudeApi(
+                event.text,
+                threadMessages,
+                c.env.CLAUDE_API_KEY
+              );
 
+              // Claude APIの応答を保存
+              const assistantMessageData: SlackMessage = {
+                channelTimestamp: `${event.channel}-${Date.now()}`,
+                timestamp: String(Date.now() / 1000),
+                threadTimestamp: event.thread_ts || event.ts,
+                channelId: event.channel,
+                text: claudeResponse,
+                role: "assistant",
+              };
+
+              console.log(
+                "Attempting to save assistant response to database:",
+                {
+                  channelTimestamp: assistantMessageData.channelTimestamp,
+                  timestamp: assistantMessageData.timestamp,
+                  threadTimestamp: assistantMessageData.threadTimestamp,
+                  channelId: assistantMessageData.channelId,
+                  textLength: assistantMessageData.text.length,
+                  role: assistantMessageData.role,
+                }
+              );
+
+              await messageService.saveMessage(assistantMessageData);
+              console.log("Successfully saved assistant response to database");
+
+              // Slackにメッセージを送信
               try {
-                const webhookResponse = await sendToWebhook(
-                  payload,
+                await sendToWebhook(
+                  {
+                    ...payload,
+                    message: claudeResponse,
+                    thread_ts: event.thread_ts || event.ts,
+                  },
                   threadMessages,
                   c.env
                 );
-
-                if (!webhookResponse.ok) {
-                  console.error("Failed to send to webhook:", {
-                    error: webhookResponse.error,
-                    eventType: payload.type,
-                    team_id: payload.team_id,
-                    timestamp: new Date().toISOString(),
-                  });
-                  return;
-                }
-
-                console.log("Successfully sent to webhook:", {
-                  eventType: payload.type,
-                  team_id: payload.team_id,
-                  timestamp: new Date().toISOString(),
-                  response: webhookResponse.data,
-                });
+                console.log("Successfully sent response to Slack");
               } catch (error) {
-                console.error("Error sending to webhook:", {
+                console.error("Error sending response to Slack:", {
                   error:
                     error instanceof Error ? error.message : "Unknown error",
                   stack: error instanceof Error ? error.stack : undefined,
-                  eventType: payload.type,
-                  team_id: payload.team_id,
                 });
               }
             } catch (error) {

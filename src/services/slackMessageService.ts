@@ -6,6 +6,7 @@ export interface SlackMessage {
   threadTimestamp?: string;
   channelId: string;
   text: string;
+  role: string;
 }
 
 export class SlackMessageService {
@@ -18,12 +19,21 @@ export class SlackMessageService {
         timestamp: message.timestamp,
         threadTimestamp: message.threadTimestamp,
         channelTimestamp: message.channelTimestamp,
+        role: message.role,
         textLength: message.text.length,
       });
 
       const stmt = this.db.prepare(
-        `INSERT INTO chathistory (channelId, timestamp, threadTimestamp, text, channelTimestamp)
-         VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO chathistory (
+            channelId, 
+            timestamp, 
+            threadTimestamp, 
+            text,
+            role, 
+            channelTimestamp,
+            createdAt
+         )
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
       );
 
       console.log("Prepared SQL statement:", {
@@ -33,6 +43,7 @@ export class SlackMessageService {
           message.timestamp,
           message.threadTimestamp || null,
           message.text,
+          message.role,
           message.channelTimestamp,
         ],
       });
@@ -43,6 +54,7 @@ export class SlackMessageService {
           message.timestamp,
           message.threadTimestamp || null,
           message.text,
+          message.role,
           message.channelTimestamp
         )
         .run();
@@ -60,6 +72,7 @@ export class SlackMessageService {
           timestamp: message.timestamp,
           threadTimestamp: message.threadTimestamp,
           channelTimestamp: message.channelTimestamp,
+          role: message.role,
         },
       });
       throw error;
@@ -72,13 +85,16 @@ export class SlackMessageService {
         threadTimestamp,
       });
       const stmt = this.db.prepare(
-        `SELECT channelTimestamp as channel_timestamp,
-                timestamp,
-                threadTimestamp as thread_timestamp,
-                channelId as channel_id,
-                text
+        `SELECT 
+            channelTimestamp as channelTimestamp,
+            timestamp,
+            threadTimestamp as threadTimestamp,
+            channelId as channelId,
+            text,
+            role,
+            datetime(createdAt, '+9 hours') as createdAtJst
          FROM chathistory
-         WHERE threadTimestamp = ? OR timestamp = ?
+         WHERE threadTimestamp = ?
          ORDER BY timestamp ASC`
       );
 
@@ -96,11 +112,12 @@ export class SlackMessageService {
       });
 
       const messages = (result.results || []).map((row: any) => ({
-        channelTimestamp: row.channel_timestamp,
+        channelTimestamp: row.channelTimestamp,
         timestamp: row.timestamp,
-        threadTimestamp: row.thread_timestamp,
-        channelId: row.channel_id,
+        threadTimestamp: row.threadTimestamp,
+        channelId: row.channelId,
         text: row.text,
+        role: row.role,
       }));
 
       console.log("Processed thread messages:", {
