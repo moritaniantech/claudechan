@@ -4,7 +4,7 @@ main = "src/index.ts"
 compatibility_date = "2024-12-24"
 routes = [
   # 特定のサブドメインのみ
-  { pattern = "claudechan.morimori-milk.com/*", zone_name = "morimori-milk.com" }
+  { pattern = "claudechan.morimori-milk.com/*", custom_domain = true, zone_name = "morimori-milk.com" }
 ]
 
 # Workers Logs
