@@ -5,6 +5,7 @@ import { logger } from "../utils/logger";
 import { createSlackClient } from "../utils/slackClient";
 import { Env } from "../types";
 import { Context } from "hono";
+import { getRequestId } from "../utils/context";
 
 interface SlackEventBody {
   type: string;
@@ -38,7 +39,10 @@ export const createSlackEventHandler = (env: Env) => {
     slackClient
   );
 
-  return async (c: Context) => {
+  return async (c: Context<{ Bindings: Env }>) => {
+    const requestId = getRequestId(c);
+    console.log(`Processing Slack event with request ID: ${requestId}`);
+
     try {
       // Verify Slack request signature
       const signature = c.req.header("x-slack-signature");

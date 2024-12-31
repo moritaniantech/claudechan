@@ -46,6 +46,11 @@ export interface Env {
   BOT_USER_ID: string;
 }
 
+// Request Context
+export interface RequestContext {
+  requestId: string;
+}
+
 export interface MessageResponse {
   ok: boolean;
   error?: string;

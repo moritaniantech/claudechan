@@ -1,25 +1,33 @@
+import { Context } from "hono";
+import { Env } from "../types";
+import { getRequestId } from "./context";
+
 export class Logger {
-  private generateId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
-  };
+  private requestId: string;
+
+  constructor(c: Context<{ Bindings: Env }>) {
+    this.requestId = getRequestId(c);
+  }
 
   info(message: string, data?: any) {
     console.log(
-      `[INFO][${this.generateId()}] ${message}`,
+      `[INFO][${this.requestId}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
   }
 
   error(message: string, error?: any) {
-    console.error(`[ERROR][${this.generateId()}] ${message}`, error);
+    console.error(`[ERROR][${this.requestId}] ${message}`, error);
   }
 
   debug(message: string, data?: any) {
     console.debug(
-      `[DEBUG][${this.generateId()}] ${message}`,
+      `[DEBUG][${this.requestId}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
   }
 }
 
-export const logger = new Logger();
+export function createLogger(c: Context<{ Bindings: Env }>) {
+  return new Logger(c);
+}
