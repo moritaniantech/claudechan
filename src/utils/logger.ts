@@ -1,22 +1,27 @@
-// ランダムなprocessIdを生成（サーバー起動時に一度だけ生成）
-const processId = crypto.randomUUID();
+export class Logger {
+  private requestId: string;
 
-export const logger = {
-  info: (message: string, data?: any) => {
+  constructor() {
+    this.requestId = crypto.randomUUID();
+  }
+
+  info(message: string, data?: any) {
     console.log(
-      `[INFO][${processId}] ${message}`,
+      `[INFO][${this.requestId}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
-  },
+  }
 
-  error: (message: string, error?: any) => {
-    console.error(`[ERROR][${processId}] ${message}`, error);
-  },
+  error(message: string, error?: any) {
+    console.error(`[ERROR][${this.requestId}] ${message}`, error);
+  }
 
-  debug: (message: string, data?: any) => {
+  debug(message: string, data?: any) {
     console.debug(
-      `[DEBUG][${processId}] ${message}`,
+      `[DEBUG][${this.requestId}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
-  },
-};
+  }
+}
+
+export const logger = new Logger();
