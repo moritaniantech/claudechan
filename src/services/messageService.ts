@@ -87,28 +87,26 @@ export class MessageService {
       });
 
       try {
-        // PDFファイルをダウンロード
-        const response = await this.slackClient.downloadFile(
-          file.url_private_download
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to download PDF file: ${response.statusText}`
-          );
-        }
+        console.log(`PDFファイルの取得を開始: ${file.name}`);
+        const response = await fetch(file.url_private);
+        console.log("PDFファイルの取得完了");
 
         // Base64エンコード
+        console.log("Base64エンコードを開始");
         const arrayBuffer = await response.arrayBuffer();
         const base64 = Buffer.from(arrayBuffer).toString("base64");
+        console.log("Base64エンコード完了");
 
         // PDFの内容を解析
+        console.log("Anthropicによる解析を開始");
         const analysis = await this.anthropic.analyzePdfContent(
           base64,
           event.text || ""
         );
+        console.log("Anthropicによる解析完了");
 
         // PDFの内容と解析結果を会話履歴に保存
+        console.log("データベースへの保存を開始");
         await this.db.saveMessage({
           channelId: event.channel,
           timestamp: event.ts,
@@ -118,6 +116,7 @@ export class MessageService {
           }`,
           role: "user",
         });
+        console.log("データベースへの保存完了");
 
         // Anthropicの応答を保存
         const anthropicMessageTs = new Date().getTime().toString();
@@ -138,19 +137,8 @@ export class MessageService {
 
         return true;
       } catch (error) {
-        logger.error("Error processing PDF file", {
-          error,
-          filename: file.name,
-        });
-
-        // エラーメッセージを送信
-        await this.slackClient.postMessage(
-          event.channel,
-          "PDFファイルの処理中にエラーが発生しました。",
-          event.thread_ts || event.ts
-        );
-
-        throw new AppError("Failed to process PDF file", error);
+        console.error("PDFファイル処理中にエラーが発生:", error);
+        throw error;
       }
     }
     return false;
@@ -252,7 +240,7 @@ export class MessageService {
 
   async handleAppMention(event: any): Promise<void> {
     const processId = crypto.randomUUID();
-    logger.trace(`[${processId}] Starting app_mention processing`, {
+    logger.debug(`[${processId}] Starting app_mention processing`, {
       channel: event.channel,
       user: event.user,
       hasThread: !!event.thread_ts,
@@ -291,7 +279,7 @@ export class MessageService {
       const messages = await this.db.getThreadMessages(
         event.thread_ts || event.ts
       );
-      logger.trace(`[${processId}] Retrieved thread messages`, {
+      logger.debug(`[${processId}] Retrieved thread messages`, {
         count: messages.length,
       });
 
@@ -309,7 +297,7 @@ export class MessageService {
       // Anthropic APIの応答を待機
       logger.debug(`[${processId}] Requesting Anthropic API response`);
       const response = await this.anthropic.generateResponse(anthropicMessages);
-      logger.trace(`[${processId}] Received Anthropic API response`, {
+      logger.debug(`[${processId}] Received Anthropic API response`, {
         responseLength: response.length,
       });
 
@@ -338,7 +326,7 @@ export class MessageService {
 
   async handleMessage(event: any): Promise<void> {
     const processId = crypto.randomUUID();
-    logger.trace(`[${processId}] Starting message processing`, {
+    logger.debug(`[${processId}] Starting message processing`, {
       channel: event.channel,
       user: event.user,
       hasThread: !!event.thread_ts,
@@ -400,7 +388,7 @@ export class MessageService {
       // 会話履歴の取得と応答生成
       logger.debug(`[${processId}] Fetching thread messages`);
       const messages = await this.db.getThreadMessages(event.thread_ts);
-      logger.trace(`[${processId}] Retrieved thread messages`, {
+      logger.debug(`[${processId}] Retrieved thread messages`, {
         count: messages.length,
       });
 
@@ -418,7 +406,7 @@ export class MessageService {
       // Anthropic APIの応答を待機
       logger.debug(`[${processId}] Requesting Anthropic API response`);
       const response = await this.anthropic.generateResponse(anthropicMessages);
-      logger.trace(`[${processId}] Received Anthropic API response`, {
+      logger.debug(`[${processId}] Received Anthropic API response`, {
         responseLength: response.length,
       });
 
