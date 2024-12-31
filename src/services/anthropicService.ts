@@ -16,17 +16,23 @@ export class AnthropicService {
     try {
       logger.info(`Generating response from Anthropic API`, {
         messageCount: messages.length,
+        messages: JSON.stringify(messages),
       });
 
       const response = await this.client.messages
         .create({
           model: "claude-3-5-sonnet-latest",
-          messages: messages,
+          messages: messages as Anthropic.MessageParam[],
           max_tokens: 1024,
         })
         .catch((err) => {
           if (err instanceof Anthropic.APIError) {
-            logger.error("Anthropic API Error", err);
+            logger.error("Anthropic API Error", {
+              error: err,
+              status: err.status,
+              message: err.message,
+              details: err.error,
+            });
             throw err;
           } else {
             throw err;

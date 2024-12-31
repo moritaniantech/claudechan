@@ -67,7 +67,20 @@ export interface DatabaseRecord {
 
 export interface AnthropicMessage {
   role: "user" | "assistant";
-  content: string;
+  content: Array<
+    | {
+        type: "text";
+        text: string;
+      }
+    | {
+        type: "document";
+        source: {
+          type: "base64";
+          media_type: string;
+          data: string;
+        };
+      }
+  >;
 }
 
 export interface ErrorResponse {
