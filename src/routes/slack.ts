@@ -79,11 +79,7 @@ export const createSlackEventHandler = (env: Env) => {
                 user: event.user,
                 thread_ts: event.thread_ts,
               });
-              messageService
-                .handleAppMention(event, slackClient)
-                .catch((error) => {
-                  logger.error("Error in app mention handler", error);
-                });
+              await messageService.handleAppMention(event, slackClient);
               break;
 
             case "message":
@@ -93,11 +89,7 @@ export const createSlackEventHandler = (env: Env) => {
                   user: event.user,
                   thread_ts: event.thread_ts,
                 });
-                messageService
-                  .handleMessage(event, slackClient)
-                  .catch((error) => {
-                    logger.error("Error in message handler", error);
-                  });
+                await messageService.handleMessage(event, slackClient);
               } else {
                 logger.info("Ignoring message with subtype", {
                   subtype: event.subtype,
@@ -115,6 +107,7 @@ export const createSlackEventHandler = (env: Env) => {
             error,
             eventType: event.type,
           });
+          throw error; // エラーを上位に伝播させる
         }
       }
 
