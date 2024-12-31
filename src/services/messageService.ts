@@ -88,7 +88,9 @@ export class MessageService {
 
       try {
         // PDFファイルをダウンロード
-        const response = await this.slackClient.downloadFile(file.url_private);
+        const response = await this.slackClient.downloadFile(
+          file.url_private_download
+        );
 
         if (!response.ok) {
           throw new Error(
