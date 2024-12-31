@@ -2,10 +2,10 @@ import { Context } from "hono";
 import { Env } from "../types";
 import { getRequestId } from "./context";
 
-export class Logger {
-  private requestId: string;
+class Logger {
+  private requestId: string = "default";
 
-  constructor(c: Context<{ Bindings: Env }>) {
+  updateContext(c: Context<{ Bindings: Env }>) {
     this.requestId = getRequestId(c);
   }
 
@@ -28,6 +28,8 @@ export class Logger {
   }
 }
 
-export function createLogger(c: Context<{ Bindings: Env }>) {
-  return new Logger(c);
+export const logger = new Logger();
+
+export function updateLoggerContext(c: Context<{ Bindings: Env }>) {
+  logger.updateContext(c);
 }
