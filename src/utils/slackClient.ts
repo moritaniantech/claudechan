@@ -83,6 +83,31 @@ export class SlackClient {
     return data;
   }
 
+  async updateMessage(channel: string, ts: string, text: string) {
+    const response = await fetch(`${this.baseUrl}/chat.update`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channel,
+        ts,
+        text,
+      }),
+    });
+
+    const data = (await response.json()) as SlackAPIResponse;
+
+    if (!response.ok || !data.ok) {
+      throw new Error(
+        `Failed to update message: ${data.error || response.statusText}`
+      );
+    }
+
+    return data;
+  }
+
   // 必要に応じて他のSlack APIメソッドを追加
 }
 

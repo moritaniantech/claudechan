@@ -31,7 +31,12 @@ export const createSlackEventHandler = (env: Env) => {
     env.SLACK_BOT_TOKEN,
     env.SLACK_SIGNING_SECRET
   );
-  const messageService = new MessageService(db, anthropic, env.BOT_USER_ID);
+  const messageService = new MessageService(
+    db,
+    anthropic,
+    env.BOT_USER_ID,
+    slackClient
+  );
 
   return async (c: Context) => {
     try {
