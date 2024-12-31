@@ -86,30 +86,68 @@ export class MessageService {
         filename: file.name,
       });
 
-      // PDFファイルをダウンロード
-      const response = await this.slackClient.downloadFile(file.url_private);
+      try {
+        // PDFファイルをダウンロード
+        const response = await this.slackClient.downloadFile(file.url_private);
 
-      if (!response.ok) {
-        throw new Error("Failed to download PDF file");
+        if (!response.ok) {
+          throw new Error("Failed to download PDF file");
+        }
+
+        // Base64エンコード
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+        // PDFの内容を解析
+        const analysis = await this.anthropic.analyzePdfContent(
+          base64,
+          event.text || ""
+        );
+
+        // 解析結果をSlackに送信
+        const messageResponse = await this.slackClient.postMessage(
+          event.channel,
+          `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
+          event.thread_ts || event.ts
+        );
+
+        // PDFの内容と解析結果を会話履歴に保存
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: event.ts,
+          threadTimestamp: event.thread_ts || event.ts,
+          text: `PDFファイル「${file.name}」が共有されました。\n${
+            event.text || ""
+          }`,
+          role: "user",
+        });
+
+        if (messageResponse.ts) {
+          await this.db.saveMessage({
+            channelId: event.channel,
+            timestamp: messageResponse.ts,
+            threadTimestamp: event.thread_ts || event.ts,
+            text: analysis,
+            role: "assistant",
+          });
+        }
+
+        return true;
+      } catch (error) {
+        logger.error("Error processing PDF file", {
+          error,
+          filename: file.name,
+        });
+
+        // エラーメッセージを送信
+        await this.slackClient.postMessage(
+          event.channel,
+          "PDFファイルの処理中にエラーが発生しました。",
+          event.thread_ts || event.ts
+        );
+
+        throw new AppError("Failed to process PDF file", error);
       }
-
-      // Base64エンコード
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-      // PDFの内容を解析
-      const analysis = await this.anthropic.analyzePdfContent(
-        base64,
-        event.text
-      );
-
-      // 解析結果をSlackに送信
-      await this.slackClient.postMessage(
-        event.channel,
-        `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
-        event.thread_ts || event.ts
-      );
-      return true;
     }
     return false;
   }
