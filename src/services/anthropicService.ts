@@ -45,17 +45,47 @@ export class AnthropicService {
     }
   }
 
-  async analyzePdf(pdfData: ArrayBuffer): Promise<string> {
+  async analyzePdf(
+    pdfData: ArrayBuffer,
+    messages: AnthropicMessage[]
+  ): Promise<string> {
     try {
-      // PDFデータを解析する処理をここに実装
-      // 例: APIを呼び出して解析結果を取得
-      const response = await fetch("https://api.anthropic.com/v1/analyze-pdf", {
+      // PDFデータをBase64にエンコード
+      const pdfBase64 = Buffer.from(pdfData).toString("base64");
+
+      // APIリクエストのボディを構築
+      const requestBody = {
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1024,
+        messages: [
+          {
+            content: [
+              {
+                type: "document",
+                source: {
+                  media_type: "application/pdf",
+                  type: "base64",
+                  data: pdfBase64,
+                },
+                cache_control: { type: "ephemeral" },
+              },
+              ...messages.map((message) => ({
+                type: "text",
+                text: message.content,
+              })),
+            ],
+            role: "user",
+          },
+        ],
+      };
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "Content-Type": "application/pdf",
+          "Content-Type": "application/json",
           "x-api-key": this.apiKey,
         },
-        body: pdfData,
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -63,8 +93,10 @@ export class AnthropicService {
         throw new AppError("Anthropic PDF analysis request failed", error);
       }
 
-      const result = (await response.json()) as { analysis: string };
-      return result.analysis;
+      const result = (await response.json()) as {
+        content: Array<{ type: string; text: string }>;
+      };
+      return result.content[0].text;
     } catch (error) {
       logger.error("Error analyzing PDF with Anthropic API", error);
       throw new AppError("Failed to analyze PDF with Anthropic API", error);
