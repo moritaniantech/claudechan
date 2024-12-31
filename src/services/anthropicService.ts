@@ -2,7 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicMessage, Env } from "../types";
 import { logger } from "../utils/logger";
 import { AppError } from "../utils/errorHandler";
-import { randomUUID } from "crypto";
 
 export class AnthropicService {
   private client: Anthropic;
@@ -14,7 +13,7 @@ export class AnthropicService {
   }
 
   async generateResponse(messages: AnthropicMessage[]): Promise<string> {
-    const processId = randomUUID();
+    const processId = crypto.randomUUID();
     try {
       logger.info(`[${processId}] Generating response from Anthropic API`, {
         messageCount: messages.length,
@@ -54,7 +53,7 @@ export class AnthropicService {
     pdfBase64: string,
     userMessage?: string
   ): Promise<string> {
-    const processId = randomUUID();
+    const processId = crypto.randomUUID();
     try {
       logger.info(`[${processId}] Analyzing PDF content with Anthropic API`);
 
