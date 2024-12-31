@@ -104,13 +104,6 @@ export class MessageService {
           event.text || ""
         );
 
-        // 解析結果をSlackに送信
-        const messageResponse = await this.slackClient.postMessage(
-          event.channel,
-          `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
-          event.thread_ts || event.ts
-        );
-
         // PDFの内容と解析結果を会話履歴に保存
         await this.db.saveMessage({
           channelId: event.channel,
@@ -122,15 +115,22 @@ export class MessageService {
           role: "user",
         });
 
-        if (messageResponse.ts) {
-          await this.db.saveMessage({
-            channelId: event.channel,
-            timestamp: messageResponse.ts,
-            threadTimestamp: event.thread_ts || event.ts,
-            text: analysis,
-            role: "assistant",
-          });
-        }
+        // Anthropicの応答を保存
+        const anthropicMessageTs = new Date().getTime().toString();
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: anthropicMessageTs,
+          threadTimestamp: event.thread_ts || event.ts,
+          text: analysis,
+          role: "assistant",
+        });
+
+        // 解析結果をSlackに送信
+        await this.slackClient.postMessage(
+          event.channel,
+          `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
+          event.thread_ts || event.ts
+        );
 
         return true;
       } catch (error) {
@@ -233,6 +233,14 @@ export class MessageService {
   }
 
   async handleAppMention(event: any): Promise<void> {
+    // PDFファイルが添付されている場合は専用の処理を行う
+    if (event.files && event.files.length > 0) {
+      const hasPdfProcessed = await this.processPdfFiles(event);
+      if (hasPdfProcessed) {
+        return;
+      }
+    }
+
     await this.processMessage(
       event.user,
       event.text || "",
