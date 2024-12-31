@@ -19,13 +19,16 @@ export class MessageService {
 
   private async postInitialResponse(
     channelId: string,
-    threadTs?: string
+    threadTs?: string,
+    timestamp?: string
   ): Promise<MessageResponse> {
     try {
+      const threadReference = threadTs || timestamp;
+
       return await this.slackClient.postMessage(
         channelId,
         "回答を生成中です...",
-        threadTs
+        threadReference
       );
     } catch (error) {
       logger.error("Error posting initial response", error);
@@ -65,7 +68,8 @@ export class MessageService {
 
       initialResponse = await this.postInitialResponse(
         event.channel,
-        event.thread_ts
+        event.thread_ts,
+        event.ts
       );
 
       // Get conversation history
@@ -126,7 +130,8 @@ export class MessageService {
 
       initialResponse = await this.postInitialResponse(
         event.channel,
-        event.thread_ts
+        event.thread_ts,
+        event.ts
       );
 
       // Get conversation history
