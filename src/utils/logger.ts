@@ -1,5 +1,5 @@
 // ランダムなprocessIdを生成（サーバー起動時に一度だけ生成）
-const processId = Math.random().toString(36).substring(2, 8);
+const processId = crypto.randomUUID();
 
 export const logger = {
   info: (message: string, data?: any) => {
