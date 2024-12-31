@@ -2,7 +2,9 @@ import { MessageService } from "../services/messageService";
 import { DatabaseService } from "../services/databaseService";
 import { AnthropicService } from "../services/anthropicService";
 import { logger } from "../utils/logger";
-import { SlackEvent } from "../types";
+import { createSlackClient } from "../utils/slackClient";
+import { Env } from "../types";
+import { Context } from "hono";
 
 interface SlackEventBody {
   type: string;
@@ -22,13 +24,23 @@ interface SlackEventBody {
   api_app_id?: string;
 }
 
-export const createSlackEventHandler = (env: any) => {
+export const createSlackEventHandler = (env: Env) => {
   const db = new DatabaseService(env.DB);
   const anthropic = new AnthropicService(env.ANTHROPIC_API_KEY);
+  const slackClient = createSlackClient(env.SLACK_BOT_TOKEN);
   const messageService = new MessageService(db, anthropic, env.BOT_USER_ID);
 
-  return async (c: any) => {
+  return async (c: Context) => {
     try {
+      // Verify Slack request signature
+      const signature = c.req.header("x-slack-signature");
+      const timestamp = c.req.header("x-slack-request-timestamp");
+
+      if (!signature || !timestamp) {
+        logger.error("Missing Slack signature or timestamp");
+        return c.text("Unauthorized", 401);
+      }
+
       const body = (await c.req.json()) as SlackEventBody;
       logger.info("Received Slack event", {
         type: body.type,
@@ -41,7 +53,11 @@ export const createSlackEventHandler = (env: any) => {
         return c.text(body.challenge, 200);
       }
 
-      // Handle events
+      // 即座に200を返す
+      c.header("X-Slack-No-Retry", "1");
+      const response = c.text("OK", 200);
+
+      // 非同期で後続の処理を実行
       if (body.type === "event_callback" && body.event) {
         const event = body.event;
         logger.info("Processing event", { eventType: event.type });
@@ -54,7 +70,11 @@ export const createSlackEventHandler = (env: any) => {
                 user: event.user,
                 thread_ts: event.thread_ts,
               });
-              await messageService.handleAppMention(event, env.SLACK_CLIENT);
+              messageService
+                .handleAppMention(event, slackClient)
+                .catch((error) => {
+                  logger.error("Error in app mention handler", error);
+                });
               break;
 
             case "message":
@@ -64,7 +84,11 @@ export const createSlackEventHandler = (env: any) => {
                   user: event.user,
                   thread_ts: event.thread_ts,
                 });
-                await messageService.handleMessage(event, env.SLACK_CLIENT);
+                messageService
+                  .handleMessage(event, slackClient)
+                  .catch((error) => {
+                    logger.error("Error in message handler", error);
+                  });
               } else {
                 logger.info("Ignoring message with subtype", {
                   subtype: event.subtype,
@@ -77,19 +101,15 @@ export const createSlackEventHandler = (env: any) => {
                 type: event.type,
               });
           }
-
-          return c.text("OK", 200);
         } catch (error) {
           logger.error("Error processing event", {
             error,
             eventType: event.type,
           });
-          return c.text("Event processing failed", 500);
         }
       }
 
-      logger.info("Unhandled request type", { type: body.type });
-      return c.text("Unhandled request type", 400);
+      return response;
     } catch (error) {
       logger.error("Error handling Slack event", error);
       return c.text("Internal Server Error", 500);
