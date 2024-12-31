@@ -109,6 +109,14 @@ export class SlackClient {
     return data;
   }
 
+  async downloadFile(url: string): Promise<Response> {
+    return fetch(url, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+      },
+    });
+  }
+
   // 必要に応じて他のSlack APIメソッドを追加
 }
 

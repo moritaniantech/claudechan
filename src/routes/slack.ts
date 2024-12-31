@@ -84,7 +84,7 @@ export const createSlackEventHandler = (env: Env) => {
                 user: event.user,
                 thread_ts: event.thread_ts,
               });
-              await messageService.handleAppMention(event, slackClient);
+              await messageService.handleAppMention(event);
               break;
 
             case "message":
@@ -94,7 +94,7 @@ export const createSlackEventHandler = (env: Env) => {
                   user: event.user,
                   thread_ts: event.thread_ts,
                 });
-                await messageService.handleMessage(event, slackClient);
+                await messageService.handleMessage(event);
               } else {
                 logger.info("Ignoring message with subtype", {
                   subtype: event.subtype,

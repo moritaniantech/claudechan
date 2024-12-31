@@ -1,78 +1,125 @@
-import { SlackEvent, SlackWebhookResponse } from "../types";
-import { MessageService } from "../services/messageService";
+import { AnthropicService } from "./anthropicService";
+import { logger } from "../utils/logger";
+import { MessageService } from "./messageService";
+import { DatabaseService } from "./databaseService";
+import { createSlackClient } from "../utils/slackClient";
+import { Env } from "../types";
+import { Context } from "hono";
 
-export class SlackEventService {
-  constructor(private env: any) {}
-
-  async handleEventCallback(event: SlackEvent): Promise<SlackWebhookResponse> {
-    console.log("Event callback received:", {
-      event_type: event.event?.type,
-      user: event.event?.user,
-      channel: event.event?.channel,
-      timestamp: event.event?.ts,
-    });
-
-    switch (event.event?.type) {
-      case "message":
-        return this.handleMessageEvent(event);
-      case "app_mention":
-        return this.handleAppMention(event);
-      default:
-        console.warn("Unhandled event type:", event.event?.type);
-        return { ok: true, message: "Event received but not handled" };
-    }
-  }
-
-  private async handleMessageEvent(
-    event: SlackEvent
-  ): Promise<SlackWebhookResponse> {
-    console.log("Message event received:", {
-      user: event.event?.user,
-      text: event.event?.text,
-      channel: event.event?.channel,
-    });
-
-    // PDFファイルが添付されているか確認
-    if (
-      event.event?.files &&
-      event.event.files.some((file: any) => file.mimetype === "application/pdf")
-    ) {
-      const pdfFile = event.event.files.find(
-        (file: any) => file.mimetype === "application/pdf"
-      );
-      const messageService = new MessageService(
-        this.env.db,
-        this.env.anthropic,
-        this.env.botUserId,
-        this.env.slackClient
-      );
-      const analysisResult = await messageService.analyzePdfAttachment(
-        pdfFile.url_private
-      );
-
-      // PDF解析結果をSlackに投稿
-      await this.env.slackClient.postMessage(
-        event.event.channel,
-        `PDF解析結果: ${analysisResult}`,
-        event.event.thread_ts
-      );
-      return { ok: true, message: "PDF processed" };
-    }
-
-    // メッセージイベントの処理をここに実装
-    return { ok: true, message: "Message processed" };
-  }
-
-  private async handleAppMention(
-    event: SlackEvent
-  ): Promise<SlackWebhookResponse> {
-    console.log("App mention received:", {
-      user: event.event?.user,
-      text: event.event?.text,
-      channel: event.event?.channel,
-    });
-
-    // アプリメンションの処理をここに実装
-    return { ok: true, message: "App mention processed" };
-  }
+interface SlackEventBody {
+  type: string;
+  challenge?: string;
+  event?: {
+    type: string;
+    subtype?: string;
+    user?: string;
+    text?: string;
+    channel?: string;
+    ts?: string;
+    thread_ts?: string;
+    [key: string]: any;
+  };
+  token?: string;
+  team_id?: string;
+  api_app_id?: string;
 }
+
+export const createSlackEventHandler = (env: Env) => {
+  const db = new DatabaseService(env.DB);
+  const anthropic = new AnthropicService(env.ANTHROPIC_API_KEY);
+  const slackClient = createSlackClient(
+    env.SLACK_BOT_TOKEN,
+    env.SLACK_SIGNING_SECRET
+  );
+  const messageService = new MessageService(
+    db,
+    anthropic,
+    env.BOT_USER_ID,
+    slackClient
+  );
+
+  return async (c: Context) => {
+    try {
+      // Verify Slack request signature
+      const signature = c.req.header("x-slack-signature");
+      const timestamp = c.req.header("x-slack-request-timestamp");
+      const rawBody = await c.req.raw.clone().text();
+
+      if (!signature || !timestamp) {
+        logger.error("Missing Slack signature or timestamp");
+        return c.text("Unauthorized", 401);
+      }
+
+      if (!slackClient.verifySlackRequest(signature, timestamp, rawBody)) {
+        logger.error("Invalid Slack signature");
+        return c.text("Unauthorized", 401);
+      }
+
+      const body = (await c.req.json()) as SlackEventBody;
+      logger.info("Received Slack event", {
+        type: body.type,
+        event: body.event?.type,
+      });
+
+      // Handle URL verification
+      if (body.type === "url_verification" && body.challenge) {
+        logger.info("Handling URL verification challenge");
+        return c.text(body.challenge, 200);
+      }
+
+      // 即座に200を返す
+      c.header("X-Slack-No-Retry", "1");
+      const response = c.text("OK", 200);
+
+      // 非同期で後続の処理を実行
+      if (body.type === "event_callback" && body.event) {
+        const event = body.event;
+        logger.info("Processing event", { eventType: event.type });
+
+        try {
+          switch (event.type) {
+            case "app_mention":
+              logger.info("Handling app mention event", {
+                channel: event.channel,
+                user: event.user,
+                thread_ts: event.thread_ts,
+              });
+              await messageService.handleAppMention(event);
+              break;
+
+            case "message":
+              if (!event.subtype) {
+                logger.info("Handling message event", {
+                  channel: event.channel,
+                  user: event.user,
+                  thread_ts: event.thread_ts,
+                });
+                await messageService.handleMessage(event);
+              } else {
+                logger.info("Ignoring message with subtype", {
+                  subtype: event.subtype,
+                });
+              }
+              break;
+
+            default:
+              logger.info("Ignoring unhandled event type", {
+                type: event.type,
+              });
+          }
+        } catch (error) {
+          logger.error("Error processing event", {
+            error,
+            eventType: event.type,
+          });
+          throw error;
+        }
+      }
+
+      return response;
+    } catch (error) {
+      logger.error("Error handling Slack event", error);
+      throw error;
+    }
+  };
+};

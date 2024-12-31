@@ -9,12 +9,12 @@ export interface SlackEvent {
   team_id?: string;
   api_app_id?: string;
   event?: {
-    type: string;
+    type?: string;
     user?: string;
     text?: string;
     channel?: string;
     ts?: string;
-    [key: string]: any;
+    files?: SlackFile[];
   };
 }
 
@@ -73,4 +73,14 @@ export interface AnthropicMessage {
 export interface ErrorResponse {
   error: string;
   details?: any;
+}
+
+export interface SlackFile {
+  id: string;
+  name: string;
+  mimetype: string;
+  url_private: string;
+  filetype: string;
+  size: number;
+  created: number;
 }

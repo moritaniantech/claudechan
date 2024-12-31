@@ -58,54 +58,79 @@ export class MessageService {
     }));
   }
 
-  public async analyzePdfAttachment(pdfUrl: string): Promise<string> {
-    try {
-      // PDFをダウンロードして解析する処理をここに実装
-      // 例: PDFをダウンロードし、AnthropicのAPIを使用して解析
-      const response = await fetch(pdfUrl);
-      const pdfData = await response.arrayBuffer();
+  private async handlePdfFile(file: any, event: any): Promise<boolean> {
+    if (file.mimetype === "application/pdf") {
+      logger.info("PDF file detected, processing...", {
+        filename: file.name,
+      });
 
-      // AnthropicのAPIを使用してPDFを解析
-      const analysisResult = await this.anthropic.analyzePdf(pdfData);
+      const response = await this.slackClient.downloadFile(file.url_private);
 
-      return analysisResult;
-    } catch (error) {
-      logger.error("Error analyzing PDF attachment", error);
-      throw new AppError("Failed to analyze PDF attachment", error);
+      if (!response.ok) {
+        throw new Error("Failed to download PDF file");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+      const analysis = await this.anthropic.analyzePdfContent(
+        base64,
+        event.text
+      );
+
+      await this.slackClient.postMessage(
+        event.channel,
+        `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
+        event.thread_ts || event.ts
+      );
+      return true;
     }
+    return false;
   }
 
-  async handleAppMention(event: any): Promise<void> {
+  private async processPdfFiles(event: any): Promise<boolean> {
+    if (event.files && event.files.length > 0) {
+      for (const file of event.files) {
+        if (await this.handlePdfFile(file, event)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private async processMessage(
+    event: any,
+    isAppMention: boolean = false
+  ): Promise<void> {
     let initialResponse: MessageResponse | null = null;
     try {
-      // Skip if the message is from the bot itself
-      if (this.isFromBot(event.user)) {
+      if (this.isFromBot(event.user) || (!isAppMention && !event.thread_ts)) {
         return;
       }
 
-      // スレッド内のメンションの場合は、直接処理を続行
+      if (await this.processPdfFiles(event)) {
+        return;
+      }
+
       initialResponse = await this.postInitialResponse(
         event.channel,
         event.thread_ts,
         event.ts
       );
 
-      // Get conversation history
       const records = await this.db.getThreadMessages(
         event.thread_ts || event.ts
       );
       const messages = this.formatMessagesForAnthropic(records);
 
-      // Add the current message to the conversation
       messages.push({
         role: "user",
         content: event.text,
       });
 
-      // Get response from Anthropic
       const response = await this.anthropic.generateResponse(messages);
 
-      // Store the conversation in the database
       await this.db.saveMessage({
         channelId: event.channel,
         timestamp: event.ts,
@@ -122,90 +147,7 @@ export class MessageService {
         role: "assistant",
       });
 
-      // Update the initial message with the response
       await this.updateMessage(event.channel, initialResponse.ts!, response);
-      logger.debug("Updated message with response");
-    } catch (error) {
-      logger.error("Error in app mention processing", error);
-      if (initialResponse) {
-        await this.updateMessage(
-          event.channel,
-          initialResponse.ts!,
-          "申し訳ありません。エラーが発生しました。"
-        );
-      }
-      throw error;
-    }
-  }
-
-  async handleMessage(event: any): Promise<void> {
-    let initialResponse: MessageResponse | null = null;
-    try {
-      // Skip if the message is from the bot itself or if it's not in a thread
-      if (this.isFromBot(event.user) || !event.thread_ts) {
-        return;
-      }
-
-      // PDFファイルが添付されているか確認
-      if (
-        event.files &&
-        event.files.some((file: any) => file.mimetype === "application/pdf")
-      ) {
-        const pdfFile = event.files.find(
-          (file: any) => file.mimetype === "application/pdf"
-        );
-        const analysisResult = await this.analyzePdfAttachment(
-          pdfFile.url_private
-        );
-
-        // PDF解析結果をSlackに投稿
-        await this.slackClient.postMessage(
-          event.channel,
-          `PDF解析結果: ${analysisResult}`,
-          event.thread_ts
-        );
-        return;
-      }
-
-      initialResponse = await this.postInitialResponse(
-        event.channel,
-        event.thread_ts,
-        event.ts
-      );
-
-      // Get conversation history
-      const records = await this.db.getThreadMessages(event.thread_ts);
-      const messages = this.formatMessagesForAnthropic(records);
-
-      // Add the current message to the conversation
-      messages.push({
-        role: "user",
-        content: event.text,
-      });
-
-      // Get response from Anthropic
-      const response = await this.anthropic.generateResponse(messages);
-
-      // Store the conversation in the database
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: event.ts,
-        threadTimestamp: event.thread_ts,
-        text: event.text,
-        role: "user",
-      });
-
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: initialResponse.ts!,
-        threadTimestamp: event.thread_ts,
-        text: response,
-        role: "assistant",
-      });
-
-      // Update the initial message with the response
-      await this.updateMessage(event.channel, initialResponse.ts!, response);
-      logger.debug("Updated message with response");
     } catch (error) {
       logger.error("Error in message processing", error);
       if (initialResponse) {
@@ -217,5 +159,13 @@ export class MessageService {
       }
       throw error;
     }
+  }
+
+  async handleAppMention(event: any): Promise<void> {
+    await this.processMessage(event, true);
+  }
+
+  async handleMessage(event: any): Promise<void> {
+    await this.processMessage(event, false);
   }
 }

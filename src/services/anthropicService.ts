@@ -45,57 +45,56 @@ export class AnthropicService {
     }
   }
 
-  async analyzePdf(
-    pdfData: ArrayBuffer,
-    messages: AnthropicMessage[]
+  async analyzePdfContent(
+    pdfBase64: string,
+    userMessage?: string
   ): Promise<string> {
     try {
-      // PDFデータをBase64にエンコード
-      const pdfBase64 = Buffer.from(pdfData).toString("base64");
-
-      // APIリクエストのボディを構築
-      const requestBody = {
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1024,
-        messages: [
-          {
-            content: [
-              {
-                type: "document",
-                source: {
-                  media_type: "application/pdf",
-                  type: "base64",
-                  data: pdfBase64,
-                },
-                cache_control: { type: "ephemeral" },
-              },
-              ...messages.map((message) => ({
-                type: "text",
-                text: message.content,
-              })),
-            ],
-            role: "user",
-          },
-        ],
-      };
+      logger.info("Analyzing PDF content with Anthropic API");
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-20241022",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: {
+                    type: "base64",
+                    media_type: "application/pdf",
+                    data: pdfBase64,
+                  },
+                },
+                {
+                  type: "text",
+                  text:
+                    userMessage || "このPDFの内容を要約して説明してください。",
+                },
+              ],
+            },
+          ],
+          max_tokens: 1024,
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new AppError("Anthropic PDF analysis request failed", error);
+        throw new AppError("Anthropic API PDF analysis failed", error);
       }
 
       const result = (await response.json()) as {
         content: Array<{ type: string; text: string }>;
       };
+      logger.debug("Received PDF analysis from Anthropic API", result);
+
       return result.content[0].text;
     } catch (error) {
       logger.error("Error analyzing PDF with Anthropic API", error);
