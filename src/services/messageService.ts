@@ -91,7 +91,9 @@ export class MessageService {
         const response = await this.slackClient.downloadFile(file.url_private);
 
         if (!response.ok) {
-          throw new Error("Failed to download PDF file");
+          throw new Error(
+            `Failed to download PDF file: ${response.statusText}`
+          );
         }
 
         // Base64エンコード
