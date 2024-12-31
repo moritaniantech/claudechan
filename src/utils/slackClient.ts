@@ -86,6 +86,9 @@ export class SlackClient {
   // 必要に応じて他のSlack APIメソッドを追加
 }
 
-export const createSlackClient = (env: Env) => {
-  return new SlackClient(env);
+export const createSlackClient = (token: string, signingSecret: string) => {
+  return new SlackClient({
+    SLACK_BOT_TOKEN: token,
+    SLACK_SIGNING_SECRET: signingSecret,
+  } as Env);
 };
