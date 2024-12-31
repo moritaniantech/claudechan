@@ -1,9 +1,5 @@
 // Slack Event Types
-export type SlackEventType =
-  | "url_verification"
-  | "event_callback"
-  | "message"
-  | "app_mention";
+export type SlackEventType = "url_verification" | "message" | "app_mention";
 
 // Base Event Interface
 export interface SlackEvent {
@@ -45,4 +41,33 @@ export interface SlackWebhookResponse {
 export interface Env {
   SLACK_BOT_TOKEN?: string;
   SLACK_SIGNING_SECRET?: string;
+}
+
+export interface MessageResponse {
+  ok: boolean;
+  error?: string;
+  ts?: string;
+  message?: {
+    text: string;
+    thread_ts?: string;
+  };
+}
+
+export interface DatabaseRecord {
+  channelId: string;
+  timestamp: string;
+  threadTimestamp?: string;
+  text: string;
+  role: "user" | "assistant";
+  channelTimestamp: string;
+}
+
+export interface AnthropicMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+  details?: any;
 }
