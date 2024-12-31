@@ -258,22 +258,26 @@ export class MessageService {
       }
     }
 
-    // app_mentionの場合は常に応答
-    logger.debug(`[${processId}] Posting initial response`);
-    const initialResponse = await this.postInitialResponse(
-      event.channel,
-      event.thread_ts,
-      event.ts
-    );
-
-    if (!initialResponse.ts) {
-      logger.error(
-        `[${processId}] Failed to get timestamp from initial response`
-      );
-      throw new AppError("Failed to get timestamp from initial response", null);
-    }
-
+    let initialResponse: MessageResponse | null = null;
     try {
+      // app_mentionの場合は常に応答
+      logger.debug(`[${processId}] Posting initial response`);
+      initialResponse = await this.postInitialResponse(
+        event.channel,
+        event.thread_ts,
+        event.ts
+      );
+
+      if (!initialResponse.ts) {
+        logger.error(
+          `[${processId}] Failed to get timestamp from initial response`
+        );
+        throw new AppError(
+          "Failed to get timestamp from initial response",
+          null
+        );
+      }
+
       // 会話履歴の取得と応答生成
       logger.debug(`[${processId}] Fetching thread messages`);
       const messages = await this.db.getThreadMessages(
@@ -320,6 +324,23 @@ export class MessageService {
       );
     } catch (error) {
       logger.error(`[${processId}] Error in app mention processing`, error);
+
+      // 初期メッセージが投稿されていた場合は、エラーメッセージに更新
+      if (initialResponse?.ts) {
+        try {
+          await this.updateMessage(
+            event.channel,
+            initialResponse.ts,
+            "申し訳ありません。メッセージの処理中にエラーが発生しました。しばらく待ってから再度お試しください。"
+          );
+        } catch (updateError) {
+          logger.error(
+            `[${processId}] Failed to update error message`,
+            updateError
+          );
+        }
+      }
+
       throw error;
     }
   }
@@ -356,6 +377,7 @@ export class MessageService {
       return;
     }
 
+    let initialResponse: MessageResponse | null = null;
     try {
       // スレッド内のメッセージを確認
       logger.debug(`[${processId}] Checking thread messages`);
@@ -369,7 +391,7 @@ export class MessageService {
 
       // スレッド履歴が存在する場合のみ応答
       logger.debug(`[${processId}] Posting initial response`);
-      const initialResponse = await this.postInitialResponse(
+      initialResponse = await this.postInitialResponse(
         event.channel,
         event.thread_ts,
         event.ts
@@ -427,6 +449,23 @@ export class MessageService {
       logger.info(`[${processId}] Message processing completed successfully`);
     } catch (error) {
       logger.error(`[${processId}] Error in message processing`, error);
+
+      // 初期メッセージが投稿されていた場合は、エラーメッセージに更新
+      if (initialResponse?.ts) {
+        try {
+          await this.updateMessage(
+            event.channel,
+            initialResponse.ts,
+            "申し訳ありません。メッセージの処理中にエラーが発生しました。しばらく待ってから再度お試しください。"
+          );
+        } catch (updateError) {
+          logger.error(
+            `[${processId}] Failed to update error message`,
+            updateError
+          );
+        }
+      }
+
       throw error;
     }
   }
