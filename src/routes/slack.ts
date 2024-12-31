@@ -35,9 +35,15 @@ export const createSlackEventHandler = (env: Env) => {
       // Verify Slack request signature
       const signature = c.req.header("x-slack-signature");
       const timestamp = c.req.header("x-slack-request-timestamp");
+      const rawBody = await c.req.raw.clone().text();
 
       if (!signature || !timestamp) {
         logger.error("Missing Slack signature or timestamp");
+        return c.text("Unauthorized", 401);
+      }
+
+      if (!slackClient.verifySlackRequest(signature, timestamp, rawBody)) {
+        logger.error("Invalid Slack signature");
         return c.text("Unauthorized", 401);
       }
 
