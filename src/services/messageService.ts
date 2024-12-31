@@ -58,6 +58,23 @@ export class MessageService {
     }));
   }
 
+  public async analyzePdfAttachment(pdfUrl: string): Promise<string> {
+    try {
+      // PDFをダウンロードして解析する処理をここに実装
+      // 例: PDFをダウンロードし、AnthropicのAPIを使用して解析
+      const response = await fetch(pdfUrl);
+      const pdfData = await response.arrayBuffer();
+
+      // AnthropicのAPIを使用してPDFを解析
+      const analysisResult = await this.anthropic.analyzePdf(pdfData);
+
+      return analysisResult;
+    } catch (error) {
+      logger.error("Error analyzing PDF attachment", error);
+      throw new AppError("Failed to analyze PDF attachment", error);
+    }
+  }
+
   async handleAppMention(event: any): Promise<void> {
     let initialResponse: MessageResponse | null = null;
     try {
@@ -66,6 +83,7 @@ export class MessageService {
         return;
       }
 
+      // スレッド内のメンションの場合は、直接処理を続行
       initialResponse = await this.postInitialResponse(
         event.channel,
         event.thread_ts,
@@ -125,6 +143,27 @@ export class MessageService {
     try {
       // Skip if the message is from the bot itself or if it's not in a thread
       if (this.isFromBot(event.user) || !event.thread_ts) {
+        return;
+      }
+
+      // PDFファイルが添付されているか確認
+      if (
+        event.files &&
+        event.files.some((file: any) => file.mimetype === "application/pdf")
+      ) {
+        const pdfFile = event.files.find(
+          (file: any) => file.mimetype === "application/pdf"
+        );
+        const analysisResult = await this.analyzePdfAttachment(
+          pdfFile.url_private
+        );
+
+        // PDF解析結果をSlackに投稿
+        await this.slackClient.postMessage(
+          event.channel,
+          `PDF解析結果: ${analysisResult}`,
+          event.thread_ts
+        );
         return;
       }
 
