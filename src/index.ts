@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { Env } from "./types";
-import slack from "./routes/slack";
+import { createSlackEventHandler } from "./routes/slack";
 
 const app = new Hono<{ Bindings: Env }>();
 
 // Slackルートをマウント
-app.route("/slack", slack);
+app.post("/slack", (c) => createSlackEventHandler(c.env)(c));
 
 // 404ハンドラー
 app.notFound((c) => {

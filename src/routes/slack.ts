@@ -27,9 +27,9 @@ export const createSlackEventHandler = (env: any) => {
   const anthropic = new AnthropicService(env.ANTHROPIC_API_KEY);
   const messageService = new MessageService(db, anthropic, env.BOT_USER_ID);
 
-  return async (request: Request): Promise<Response> => {
+  return async (c: any) => {
     try {
-      const body = (await request.json()) as SlackEventBody;
+      const body = (await c.req.json()) as SlackEventBody;
       logger.info("Received Slack event", {
         type: body.type,
         event: body.event?.type,
@@ -38,7 +38,7 @@ export const createSlackEventHandler = (env: any) => {
       // Handle URL verification
       if (body.type === "url_verification" && body.challenge) {
         logger.info("Handling URL verification challenge");
-        return new Response(body.challenge, { status: 200 });
+        return c.text(body.challenge, 200);
       }
 
       // Handle events
@@ -78,21 +78,21 @@ export const createSlackEventHandler = (env: any) => {
               });
           }
 
-          return new Response("OK", { status: 200 });
+          return c.text("OK", 200);
         } catch (error) {
           logger.error("Error processing event", {
             error,
             eventType: event.type,
           });
-          return new Response("Event processing failed", { status: 500 });
+          return c.text("Event processing failed", 500);
         }
       }
 
       logger.info("Unhandled request type", { type: body.type });
-      return new Response("Unhandled request type", { status: 400 });
+      return c.text("Unhandled request type", 400);
     } catch (error) {
       logger.error("Error handling Slack event", error);
-      return new Response("Internal Server Error", { status: 500 });
+      return c.text("Internal Server Error", 500);
     }
   };
 };
