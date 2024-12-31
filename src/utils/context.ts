@@ -12,7 +12,9 @@ export function generateRequestId(): string {
 }
 
 export function setRequestContext(c: Context<{ Bindings: Env }>) {
-  c.set("requestId", generateRequestId());
+  if (!c.get("requestId")) {
+    c.set("requestId", generateRequestId());
+  }
 }
 
 export function getRequestId(c: Context<{ Bindings: Env }>): string {
