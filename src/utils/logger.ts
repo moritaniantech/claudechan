@@ -1,24 +1,22 @@
 export class Logger {
-  private requestId: string;
-
-  constructor() {
-    this.requestId = crypto.randomUUID();
-  }
+  private generateId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  };
 
   info(message: string, data?: any) {
     console.log(
-      `[INFO][${this.requestId}] ${message}`,
+      `[INFO][${this.generateId()}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
   }
 
   error(message: string, error?: any) {
-    console.error(`[ERROR][${this.requestId}] ${message}`, error);
+    console.error(`[ERROR][${this.generateId()}] ${message}`, error);
   }
 
   debug(message: string, data?: any) {
     console.debug(
-      `[DEBUG][${this.requestId}] ${message}`,
+      `[DEBUG][${this.generateId()}] ${message}`,
       data ? JSON.stringify(data) : ""
     );
   }
