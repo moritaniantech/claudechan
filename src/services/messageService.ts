@@ -60,130 +60,173 @@ export class MessageService {
   }
 
   async handleAppMention(event: any, client: any): Promise<void> {
-    if (this.isFromBot(event.user)) {
-      logger.info("Ignoring message from bot", { userId: event.user });
-      return;
-    }
-
-    const initialResponse = await this.postInitialResponse(
-      client,
-      event.channel,
-      event.thread_ts
-    );
-
     try {
-      // Save the incoming message
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: event.ts,
-        threadTimestamp: event.thread_ts,
-        text: event.text,
-        role: "user",
-      });
-
-      // Get thread messages if in a thread
-      let messages: DatabaseRecord[];
-      if (event.thread_ts) {
-        messages = await this.db.getThreadMessages(event.thread_ts);
-      } else {
-        messages = [await this.db.getThreadMessages(event.ts)].flat();
+      if (this.isFromBot(event.user)) {
+        logger.info("Ignoring message from bot", { userId: event.user });
+        return;
       }
 
-      // Generate response
-      const anthropicMessages = this.formatMessagesForAnthropic(messages);
-      const response = await this.anthropic.generateResponse(anthropicMessages);
-
-      // Update the initial message with the response
-      await this.updateMessage(
-        client,
-        event.channel,
-        initialResponse.ts!,
-        response
-      );
-
-      // Save the assistant's response
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: initialResponse.ts!,
-        threadTimestamp: event.thread_ts,
-        text: response,
-        role: "assistant",
+      logger.info("Starting app mention handling", {
+        channel: event.channel,
+        thread_ts: event.thread_ts,
       });
-    } catch (error) {
-      logger.error("Error handling app mention", error);
-      await this.updateMessage(
+
+      const initialResponse = await this.postInitialResponse(
         client,
         event.channel,
-        initialResponse.ts!,
-        "エラーが発生しました"
+        event.thread_ts
       );
-      throw error;
+
+      try {
+        // Save the incoming message
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: event.ts,
+          threadTimestamp: event.thread_ts,
+          text: event.text,
+          role: "user",
+        });
+        logger.debug("Saved user message to database");
+
+        // Get thread messages if in a thread
+        let messages: DatabaseRecord[];
+        if (event.thread_ts) {
+          messages = await this.db.getThreadMessages(event.thread_ts);
+          logger.debug("Retrieved thread messages", { count: messages.length });
+        } else {
+          messages = [await this.db.getThreadMessages(event.ts)].flat();
+          logger.debug("Retrieved initial message");
+        }
+
+        // Generate response
+        const anthropicMessages = this.formatMessagesForAnthropic(messages);
+        logger.debug("Formatted messages for Anthropic", {
+          count: anthropicMessages.length,
+        });
+
+        const response = await this.anthropic.generateResponse(
+          anthropicMessages
+        );
+        logger.debug("Received response from Anthropic");
+
+        // Update the initial message with the response
+        await this.updateMessage(
+          client,
+          event.channel,
+          initialResponse.ts!,
+          response
+        );
+        logger.debug("Updated message with response");
+
+        // Save the assistant's response
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: initialResponse.ts!,
+          threadTimestamp: event.thread_ts,
+          text: response,
+          role: "assistant",
+        });
+        logger.debug("Saved assistant response to database");
+      } catch (error) {
+        logger.error("Error in app mention processing", error);
+        await this.updateMessage(
+          client,
+          event.channel,
+          initialResponse.ts!,
+          "エラーが発生しました"
+        );
+        throw error;
+      }
+    } catch (error) {
+      logger.error("Critical error in app mention handling", error);
+      throw new AppError("Failed to handle app mention", error);
     }
   }
 
   async handleMessage(event: any, client: any): Promise<void> {
-    if (this.isFromBot(event.user)) {
-      logger.info("Ignoring message from bot", { userId: event.user });
-      return;
-    }
-
-    // Check if message is in a thread that we're tracking
-    const threadMessages = await this.db.getThreadMessages(event.thread_ts);
-    if (threadMessages.length === 0) {
-      logger.info("Message is not in a tracked thread", {
-        threadTs: event.thread_ts,
-      });
-      return;
-    }
-
-    const initialResponse = await this.postInitialResponse(
-      client,
-      event.channel,
-      event.thread_ts
-    );
-
     try {
-      // Save the incoming message
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: event.ts,
-        threadTimestamp: event.thread_ts,
-        text: event.text,
-        role: "user",
+      if (this.isFromBot(event.user)) {
+        logger.info("Ignoring message from bot", { userId: event.user });
+        return;
+      }
+
+      logger.info("Starting message handling", {
+        channel: event.channel,
+        thread_ts: event.thread_ts,
       });
 
-      // Get all messages in the thread
-      const messages = await this.db.getThreadMessages(event.thread_ts);
+      // Check if message is in a thread that we're tracking
+      const threadMessages = await this.db.getThreadMessages(event.thread_ts);
+      if (threadMessages.length === 0) {
+        logger.info("Message is not in a tracked thread", {
+          threadTs: event.thread_ts,
+        });
+        return;
+      }
 
-      // Generate response
-      const anthropicMessages = this.formatMessagesForAnthropic(messages);
-      const response = await this.anthropic.generateResponse(anthropicMessages);
-
-      // Update the initial message with the response
-      await this.updateMessage(
+      const initialResponse = await this.postInitialResponse(
         client,
         event.channel,
-        initialResponse.ts!,
-        response
+        event.thread_ts
       );
 
-      // Save the assistant's response
-      await this.db.saveMessage({
-        channelId: event.channel,
-        timestamp: initialResponse.ts!,
-        threadTimestamp: event.thread_ts,
-        text: response,
-        role: "assistant",
-      });
+      try {
+        // Save the incoming message
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: event.ts,
+          threadTimestamp: event.thread_ts,
+          text: event.text,
+          role: "user",
+        });
+        logger.debug("Saved user message to database");
+
+        // Get all messages in the thread
+        const messages = await this.db.getThreadMessages(event.thread_ts);
+        logger.debug("Retrieved thread messages", { count: messages.length });
+
+        // Generate response
+        const anthropicMessages = this.formatMessagesForAnthropic(messages);
+        logger.debug("Formatted messages for Anthropic", {
+          count: anthropicMessages.length,
+        });
+
+        const response = await this.anthropic.generateResponse(
+          anthropicMessages
+        );
+        logger.debug("Received response from Anthropic");
+
+        // Update the initial message with the response
+        await this.updateMessage(
+          client,
+          event.channel,
+          initialResponse.ts!,
+          response
+        );
+        logger.debug("Updated message with response");
+
+        // Save the assistant's response
+        await this.db.saveMessage({
+          channelId: event.channel,
+          timestamp: initialResponse.ts!,
+          threadTimestamp: event.thread_ts,
+          text: response,
+          role: "assistant",
+        });
+        logger.debug("Saved assistant response to database");
+      } catch (error) {
+        logger.error("Error in message processing", error);
+        await this.updateMessage(
+          client,
+          event.channel,
+          initialResponse.ts!,
+          "エラーが発生しました"
+        );
+        throw error;
+      }
     } catch (error) {
-      logger.error("Error handling message", error);
-      await this.updateMessage(
-        client,
-        event.channel,
-        initialResponse.ts!,
-        "エラーが発生しました"
-      );
-      throw error;
+      logger.error("Critical error in message handling", error);
+      throw new AppError("Failed to handle message", error);
     }
   }
 }
