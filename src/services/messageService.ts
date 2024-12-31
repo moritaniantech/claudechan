@@ -251,15 +251,27 @@ export class MessageService {
   }
 
   async handleAppMention(event: any): Promise<void> {
+    const processId = crypto.randomUUID();
+    logger.trace(`[${processId}] Starting app_mention processing`, {
+      channel: event.channel,
+      user: event.user,
+      hasThread: !!event.thread_ts,
+    });
+
     // PDFファイルが添付されている場合は専用の処理を行う
     if (event.files && event.files.length > 0) {
+      logger.debug(`[${processId}] PDF files detected`, {
+        fileCount: event.files.length,
+      });
       const hasPdfProcessed = await this.processPdfFiles(event);
       if (hasPdfProcessed) {
+        logger.info(`[${processId}] PDF processing completed`);
         return;
       }
     }
 
     // app_mentionの場合は常に応答
+    logger.debug(`[${processId}] Posting initial response`);
     const initialResponse = await this.postInitialResponse(
       event.channel,
       event.thread_ts,
@@ -267,97 +279,168 @@ export class MessageService {
     );
 
     if (!initialResponse.ts) {
+      logger.error(
+        `[${processId}] Failed to get timestamp from initial response`
+      );
       throw new AppError("Failed to get timestamp from initial response", null);
     }
 
-    // 会話履歴の取得と応答生成
-    const messages = await this.db.getThreadMessages(
-      event.thread_ts || event.ts
-    );
-    const anthropicMessages = this.formatMessagesForAnthropic(messages);
+    try {
+      // 会話履歴の取得と応答生成
+      logger.debug(`[${processId}] Fetching thread messages`);
+      const messages = await this.db.getThreadMessages(
+        event.thread_ts || event.ts
+      );
+      logger.trace(`[${processId}] Retrieved thread messages`, {
+        count: messages.length,
+      });
 
-    // 現在のメッセージを追加
-    anthropicMessages.push({
-      role: "user",
-      content: event.text || "",
-    });
+      const anthropicMessages = this.formatMessagesForAnthropic(messages);
+      logger.debug(`[${processId}] Formatted messages for Anthropic`, {
+        messageCount: anthropicMessages.length,
+      });
 
-    // Anthropic APIの応答を待機
-    const response = await this.anthropic.generateResponse(anthropicMessages);
+      // 現在のメッセージを追加
+      anthropicMessages.push({
+        role: "user",
+        content: event.text || "",
+      });
 
-    // メッセージの更新を実行
-    await this.updateMessage(event.channel, initialResponse.ts, response);
+      // Anthropic APIの応答を待機
+      logger.debug(`[${processId}] Requesting Anthropic API response`);
+      const response = await this.anthropic.generateResponse(anthropicMessages);
+      logger.trace(`[${processId}] Received Anthropic API response`, {
+        responseLength: response.length,
+      });
 
-    // 会話履歴の保存
-    await this.db.saveMessage({
-      channelId: event.channel,
-      timestamp: event.ts,
-      threadTimestamp: event.thread_ts || event.ts,
-      text: event.text || "",
-      role: "user",
-    });
+      // メッセージの更新を実行
+      logger.debug(`[${processId}] Updating Slack message`);
+      await this.updateMessage(event.channel, initialResponse.ts, response);
+
+      // 会話履歴の保存
+      logger.debug(`[${processId}] Saving conversation history`);
+      await this.db.saveMessage({
+        channelId: event.channel,
+        timestamp: event.ts,
+        threadTimestamp: event.thread_ts || event.ts,
+        text: event.text || "",
+        role: "user",
+      });
+
+      logger.info(
+        `[${processId}] App mention processing completed successfully`
+      );
+    } catch (error) {
+      logger.error(`[${processId}] Error in app mention processing`, error);
+      throw error;
+    }
   }
 
   async handleMessage(event: any): Promise<void> {
+    const processId = crypto.randomUUID();
+    logger.trace(`[${processId}] Starting message processing`, {
+      channel: event.channel,
+      user: event.user,
+      hasThread: !!event.thread_ts,
+    });
+
     // Botからのメッセージは無視
-    if (this.isFromBot(event.user)) return;
+    if (this.isFromBot(event.user)) {
+      logger.info(`[${processId}] Ignoring bot message`);
+      return;
+    }
 
     // PDFファイルが添付されている場合は専用の処理を行う
     if (event.files && event.files.length > 0) {
+      logger.debug(`[${processId}] PDF files detected`, {
+        fileCount: event.files.length,
+      });
       const hasPdfProcessed = await this.processPdfFiles(event);
       if (hasPdfProcessed) {
+        logger.info(`[${processId}] PDF processing completed`);
         return;
       }
     }
 
     // スレッドIDが存在しない場合は処理を終了
     if (!event.thread_ts) {
-      logger.info("Skipping message without thread_ts");
+      logger.info(`[${processId}] Skipping message without thread_ts`);
       return;
     }
 
-    // スレッド内のメッセージを確認
-    const threadMessages = await this.db.getThreadMessages(event.thread_ts);
-    if (threadMessages.length === 0) {
-      logger.info("Skipping message without existing thread history");
-      return;
+    try {
+      // スレッド内のメッセージを確認
+      logger.debug(`[${processId}] Checking thread messages`);
+      const threadMessages = await this.db.getThreadMessages(event.thread_ts);
+      if (threadMessages.length === 0) {
+        logger.info(
+          `[${processId}] Skipping message without existing thread history`
+        );
+        return;
+      }
+
+      // スレッド履歴が存在する場合のみ応答
+      logger.debug(`[${processId}] Posting initial response`);
+      const initialResponse = await this.postInitialResponse(
+        event.channel,
+        event.thread_ts,
+        event.ts
+      );
+
+      if (!initialResponse.ts) {
+        logger.error(
+          `[${processId}] Failed to get timestamp from initial response`
+        );
+        throw new AppError(
+          "Failed to get timestamp from initial response",
+          null
+        );
+      }
+
+      // 会話履歴の取得と応答生成
+      logger.debug(`[${processId}] Fetching thread messages`);
+      const messages = await this.db.getThreadMessages(event.thread_ts);
+      logger.trace(`[${processId}] Retrieved thread messages`, {
+        count: messages.length,
+      });
+
+      const anthropicMessages = this.formatMessagesForAnthropic(messages);
+      logger.debug(`[${processId}] Formatted messages for Anthropic`, {
+        messageCount: anthropicMessages.length,
+      });
+
+      // 現在のメッセージを追加
+      anthropicMessages.push({
+        role: "user",
+        content: event.text || "",
+      });
+
+      // Anthropic APIの応答を待機
+      logger.debug(`[${processId}] Requesting Anthropic API response`);
+      const response = await this.anthropic.generateResponse(anthropicMessages);
+      logger.trace(`[${processId}] Received Anthropic API response`, {
+        responseLength: response.length,
+      });
+
+      // メッセージの更新を実行
+      logger.debug(`[${processId}] Updating Slack message`);
+      await this.updateMessage(event.channel, initialResponse.ts, response);
+
+      // 会話履歴の保存
+      logger.debug(`[${processId}] Saving conversation history`);
+      await this.db.saveMessage({
+        channelId: event.channel,
+        timestamp: event.ts,
+        threadTimestamp: event.thread_ts,
+        text: event.text || "",
+        role: "user",
+      });
+
+      logger.info(`[${processId}] Message processing completed successfully`);
+    } catch (error) {
+      logger.error(`[${processId}] Error in message processing`, error);
+      throw error;
     }
-
-    // スレッド履歴が存在する場合のみ応答
-    const initialResponse = await this.postInitialResponse(
-      event.channel,
-      event.thread_ts,
-      event.ts
-    );
-
-    if (!initialResponse.ts) {
-      throw new AppError("Failed to get timestamp from initial response", null);
-    }
-
-    // 会話履歴の取得と応答生成
-    const messages = await this.db.getThreadMessages(event.thread_ts);
-    const anthropicMessages = this.formatMessagesForAnthropic(messages);
-
-    // 現在のメッセージを追加
-    anthropicMessages.push({
-      role: "user",
-      content: event.text || "",
-    });
-
-    // Anthropic APIの応答を待機
-    const response = await this.anthropic.generateResponse(anthropicMessages);
-
-    // メッセージの更新を実行
-    await this.updateMessage(event.channel, initialResponse.ts, response);
-
-    // 会話履歴の保存
-    await this.db.saveMessage({
-      channelId: event.channel,
-      timestamp: event.ts,
-      threadTimestamp: event.thread_ts,
-      text: event.text || "",
-      role: "user",
-    });
   }
 
   private convertToAnthropicMessages(
