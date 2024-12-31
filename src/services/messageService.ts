@@ -255,16 +255,49 @@ export class MessageService {
       }
     }
 
-    await this.processMessage(
-      event.user,
-      event.text || "",
+    // app_mentionの場合は常に応答
+    const initialResponse = await this.postInitialResponse(
       event.channel,
-      event.ts,
-      event.thread_ts
+      event.thread_ts,
+      event.ts
     );
+
+    if (!initialResponse.ts) {
+      throw new AppError("Failed to get timestamp from initial response", null);
+    }
+
+    // 会話履歴の取得と応答生成
+    const messages = await this.db.getThreadMessages(
+      event.thread_ts || event.ts
+    );
+    const anthropicMessages = this.formatMessagesForAnthropic(messages);
+
+    // 現在のメッセージを追加
+    anthropicMessages.push({
+      role: "user",
+      content: event.text || "",
+    });
+
+    // Anthropic APIの応答を待機
+    const response = await this.anthropic.generateResponse(anthropicMessages);
+
+    // メッセージの更新を実行
+    await this.updateMessage(event.channel, initialResponse.ts, response);
+
+    // 会話履歴の保存
+    await this.db.saveMessage({
+      channelId: event.channel,
+      timestamp: event.ts,
+      threadTimestamp: event.thread_ts || event.ts,
+      text: event.text || "",
+      role: "user",
+    });
   }
 
   async handleMessage(event: any): Promise<void> {
+    // Botからのメッセージは無視
+    if (this.isFromBot(event.user)) return;
+
     // PDFファイルが添付されている場合は専用の処理を行う
     if (event.files && event.files.length > 0) {
       const hasPdfProcessed = await this.processPdfFiles(event);
@@ -273,14 +306,54 @@ export class MessageService {
       }
     }
 
-    // 通常のメッセージ処理
-    await this.processMessage(
-      event.user,
-      event.text || "",
+    // スレッドIDが存在しない場合は処理を終了
+    if (!event.thread_ts) {
+      logger.info("Skipping message without thread_ts");
+      return;
+    }
+
+    // スレッド内のメッセージを確認
+    const threadMessages = await this.db.getThreadMessages(event.thread_ts);
+    if (threadMessages.length === 0) {
+      logger.info("Skipping message without existing thread history");
+      return;
+    }
+
+    // スレッド履歴が存在する場合のみ応答
+    const initialResponse = await this.postInitialResponse(
       event.channel,
-      event.ts,
-      event.thread_ts
+      event.thread_ts,
+      event.ts
     );
+
+    if (!initialResponse.ts) {
+      throw new AppError("Failed to get timestamp from initial response", null);
+    }
+
+    // 会話履歴の取得と応答生成
+    const messages = await this.db.getThreadMessages(event.thread_ts);
+    const anthropicMessages = this.formatMessagesForAnthropic(messages);
+
+    // 現在のメッセージを追加
+    anthropicMessages.push({
+      role: "user",
+      content: event.text || "",
+    });
+
+    // Anthropic APIの応答を待機
+    const response = await this.anthropic.generateResponse(anthropicMessages);
+
+    // メッセージの更新を実行
+    await this.updateMessage(event.channel, initialResponse.ts, response);
+
+    // 会話履歴の保存
+    await this.db.saveMessage({
+      channelId: event.channel,
+      timestamp: event.ts,
+      threadTimestamp: event.thread_ts,
+      text: event.text || "",
+      role: "user",
+    });
   }
 
   private convertToAnthropicMessages(
