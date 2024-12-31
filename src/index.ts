@@ -1,8 +1,15 @@
 import { Hono } from "hono";
 import { Env } from "./types";
 import { createSlackEventHandler } from "./routes/slack";
+import { setRequestContext } from "./utils/context";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// リクエストコンテキストの初期化ミドルウェア
+app.use("*", async (c, next) => {
+  setRequestContext(c);
+  await next();
+});
 
 // Slackルートをマウント
 app.post("/slack", (c) => createSlackEventHandler(c.env)(c));

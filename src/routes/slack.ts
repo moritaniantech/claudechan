@@ -25,8 +25,8 @@ interface SlackEventBody {
 }
 
 export const createSlackEventHandler = (env: Env) => {
-  const db = new DatabaseService(env.DB);
-  const anthropic = new AnthropicService(env.ANTHROPIC_API_KEY);
+  const db = new DatabaseService(env.DB as D1Database);
+  const anthropic = new AnthropicService(env);
   const slackClient = createSlackClient(
     env.SLACK_BOT_TOKEN,
     env.SLACK_SIGNING_SECRET

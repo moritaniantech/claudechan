@@ -3,7 +3,11 @@ import { logger } from "../utils/logger";
 import { AppError } from "../utils/errorHandler";
 
 export class DatabaseService {
-  constructor(private db: D1Database) {}
+  private db: D1Database;
+
+  constructor(db: D1Database) {
+    this.db = db;
+  }
 
   async saveMessage(record: Omit<DatabaseRecord, "channelTimestamp">) {
     try {
