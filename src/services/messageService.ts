@@ -170,9 +170,23 @@ export class MessageService {
     timestamp: string,
     threadTs?: string
   ): Promise<void> {
+    // Botからのメッセージは無視
     if (this.isFromBot(userId)) return;
 
     try {
+      // スレッドIDが存在しない場合は処理を終了
+      if (!threadTs) {
+        logger.info("Skipping message without thread_ts");
+        return;
+      }
+
+      // スレッド内のメッセージを確認
+      const threadMessages = await this.db.getThreadMessages(threadTs);
+      if (threadMessages.length === 0) {
+        logger.info("Skipping message without existing thread history");
+        return;
+      }
+
       // 初期レスポンスを投稿
       const initialResponse = await this.postInitialResponse(
         channelId,
@@ -188,7 +202,7 @@ export class MessageService {
       }
 
       // 会話履歴の取得
-      const messages = await this.db.getThreadMessages(threadTs || timestamp);
+      const messages = await this.db.getThreadMessages(threadTs);
       const anthropicMessages = this.formatMessagesForAnthropic(messages);
 
       // 現在のメッセージを追加
@@ -207,7 +221,7 @@ export class MessageService {
       await this.db.saveMessage({
         channelId,
         timestamp,
-        threadTimestamp: threadTs || timestamp,
+        threadTimestamp: threadTs,
         text,
         role: "user",
       });
