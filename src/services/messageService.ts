@@ -24,7 +24,8 @@ export class MessageService {
     try {
       return await this.slackClient.postMessage(
         channelId,
-        "回答を生成中です..."
+        "回答を生成中です...",
+        threadTs
       );
     } catch (error) {
       logger.error("Error posting initial response", error);

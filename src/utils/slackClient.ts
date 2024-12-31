@@ -59,7 +59,7 @@ export class SlackClient {
     return mySignature === signature;
   }
 
-  async postMessage(channel: string, text: string) {
+  async postMessage(channel: string, text: string, thread_ts?: string) {
     const response = await fetch(`${this.baseUrl}/chat.postMessage`, {
       method: "POST",
       headers: {
@@ -69,6 +69,7 @@ export class SlackClient {
       body: JSON.stringify({
         channel,
         text,
+        thread_ts,
       }),
     });
 
