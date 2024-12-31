@@ -1,9 +1,9 @@
-import { AnthropicMessage } from "../types";
+import { AnthropicMessage, Env } from "../types";
 import { logger } from "../utils/logger";
 import { AppError } from "../utils/errorHandler";
 
 export class AnthropicService {
-  constructor(private apiKey: string) {}
+  constructor(private env: Env) {}
 
   async generateResponse(messages: AnthropicMessage[]): Promise<string> {
     try {
@@ -15,7 +15,7 @@ export class AnthropicService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
+          "x-api-key": this.env.ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
@@ -56,7 +56,7 @@ export class AnthropicService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
+          "x-api-key": this.env.ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
