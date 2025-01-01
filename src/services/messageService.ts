@@ -12,8 +12,7 @@ export class MessageService {
     private db: DatabaseService,
     private anthropic: AnthropicService,
     private botUserId: string,
-    private slackClient: SlackClient,
-    private env: Env
+    private slackClient: SlackClient
   ) {}
 
   private isFromBot(userId: string): boolean {
