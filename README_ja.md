@@ -236,7 +236,7 @@ npx wrangler deploy --minify
 
 ## ライセンス
 
-[MIT ライセンス](LICENSE) © 2024 たにあん
+[MIT ライセンス](LICENSE) © 2024 moritaniantech
 
 ## 作者
 
