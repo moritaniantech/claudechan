@@ -96,11 +96,12 @@ export const createSlackEventHandler = (env: Env) => {
                   break;
 
                 case "message":
-                  if (!event.subtype) {
+                  if (!event.subtype || event.subtype === "file_share") {
                     logger.info("Handling message event", {
                       channel: event.channel,
                       user: event.user,
                       thread_ts: event.thread_ts,
+                      subtype: event.subtype,
                     });
                     await messageService.handleMessage(event);
                   } else {
