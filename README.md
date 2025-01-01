@@ -122,15 +122,6 @@ Required Variables:
 - `SLACK_BOT_TOKEN`: Slack bot token
 - `SLACK_SIGNING_SECRET`: Slack application signing secret
 - `SLACK_APP_TOKEN`: Slack application token
-- `CLAUDE_MODEL`: Claude model to use (e.g., `claude-3-opus-20240229`)
-- `ALLOWED_CHANNELS`: Channel IDs where bot can respond (comma-separated)
-- `ALLOWED_USERS`: User IDs allowed to use the bot (comma-separated)
-
-Optional Variables:
-
-- `MAX_TOKENS`: Maximum response tokens (default: 1000)
-- `TEMPERATURE`: Response diversity (0-1, default: 0.7)
-- `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`, default: `info`)
 
 ### 2. Slack Application Setup
 
