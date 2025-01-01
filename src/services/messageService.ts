@@ -5,13 +5,15 @@ import { logger } from "../utils/logger";
 import { AppError } from "../utils/errorHandler";
 import { SlackClient } from "../utils/slackClient";
 import { Buffer } from "buffer";
+import { Env } from "../types";
 
 export class MessageService {
   constructor(
     private db: DatabaseService,
     private anthropic: AnthropicService,
     private botUserId: string,
-    private slackClient: SlackClient
+    private slackClient: SlackClient,
+    private env: Env
   ) {}
 
   private isFromBot(userId: string): boolean {
@@ -85,18 +87,37 @@ export class MessageService {
     if (file.mimetype === "application/pdf") {
       logger.info("PDF file detected, processing...", {
         filename: file.name,
+        fileSize: file.size,
       });
 
       try {
         logger.info(`PDFファイルの取得を開始: ${file.name}`);
-        const response = await fetch(file.url_private);
+        const response = await fetch(file.url_private, {
+          headers: {
+            Authorization: `Bearer ${this.env.SLACK_BOT_TOKEN}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+
         logger.info("PDFファイルの取得完了");
 
         // Base64エンコード
         logger.info("Base64エンコードを開始");
         const arrayBuffer = await response.arrayBuffer();
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          throw new Error("Empty PDF file received");
+        }
+
         const base64 = Buffer.from(arrayBuffer).toString("base64");
-        logger.info("Base64エンコード完了");
+        if (!base64) {
+          throw new Error("Failed to encode PDF to Base64");
+        }
+        logger.info("Base64エンコード完了", {
+          encodedLength: base64.length,
+        });
 
         // PDFの内容を解析
         logger.info("Anthropicによる解析を開始");

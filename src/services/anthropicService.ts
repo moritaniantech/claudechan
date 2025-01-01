@@ -67,6 +67,18 @@ export class AnthropicService {
     try {
       logger.info(`Analyzing PDF content with Anthropic API`);
 
+      // Base64データの検証
+      if (!pdfBase64 || typeof pdfBase64 !== "string") {
+        throw new Error("Invalid PDF data: Base64 string is required");
+      }
+
+      // Base64データが正しい形式かチェック
+      try {
+        atob(pdfBase64);
+      } catch (e) {
+        throw new Error("Invalid Base64 format");
+      }
+
       const response = await this.client.messages
         .create({
           model: "claude-3-5-sonnet-latest",
@@ -94,7 +106,12 @@ export class AnthropicService {
         })
         .catch((err) => {
           if (err instanceof Anthropic.APIError) {
-            logger.error("Anthropic API Error", err);
+            logger.error("Anthropic API Error", {
+              error: err,
+              status: err.status,
+              message: err.message,
+              details: err.error,
+            });
             throw err;
           } else {
             throw err;
