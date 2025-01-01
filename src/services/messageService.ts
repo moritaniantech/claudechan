@@ -4,6 +4,7 @@ import { DatabaseRecord, MessageResponse, AnthropicMessage } from "../types";
 import { logger } from "../utils/logger";
 import { AppError } from "../utils/errorHandler";
 import { SlackClient } from "../utils/slackClient";
+import { Buffer } from "buffer";
 
 export class MessageService {
   constructor(
@@ -169,6 +170,12 @@ export class MessageService {
       // スレッドIDが存在しない場合は処理を終了
       if (!threadTs) {
         logger.info("Skipping message without thread_ts");
+        return;
+      }
+
+      // メッセージにBotのメンションが含まれている場合は無視
+      if (text.includes(`<@${this.botUserId}>`)) {
+        logger.info("Skipping message with bot mention");
         return;
       }
 
@@ -411,6 +418,12 @@ export class MessageService {
         role: "user",
         content: [{ type: "text", text: event.text || "" }],
       });
+
+      // メッセージにBotのメンションが含まれている場合は無視
+      if (event.text.includes(`<@${this.botUserId}>`)) {
+        logger.info("Skipping message with bot mention");
+        return;
+      }
 
       // Anthropic APIの応答を待機
       logger.debug(`Requesting Anthropic API response`);
