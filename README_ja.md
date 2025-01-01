@@ -7,9 +7,11 @@
 [![Anthropic Claude](https://img.shields.io/badge/Anthropic-Claude-blue.svg)](https://www.anthropic.com/)
 [![Slack API](https://img.shields.io/badge/Slack-API-green.svg)](https://api.slack.com/)
 
-Slack で動作する次世代 AI アシスタント。世界中のデータセンターで動作し、高速かつスケーラブルな AI 対話を実現。
+Slack で動作する次世代 AI アシスタント。世界中のデータセンターを活用し、高速かつスケーラブルな AI 対話を実現。
 
-[デモ](#デモ) • [機能](#主な機能) • [クイックスタート](#クイックスタート) • [設定](#詳細設定) • [貢献](#貢献)
+[English](README.md) | 日本語
+
+[デモ](#デモ) • [機能](#機能) • [クイックスタート](#クイックスタート) • [設定](#詳細設定) • [貢献](#貢献)
 
 </div>
 
@@ -17,13 +19,13 @@ Slack で動作する次世代 AI アシスタント。世界中のデータセ�
 
 ## 概要
 
-Claude Chan は、Cloudflare Workers と Anthropic の Claude API を活用した Slack ボットです。エッジでの実行により、低レイテンシーな応答と高いスケーラビリティを実現しています。会話履歴は Cloudflare D1 に保存され、文脈を考慮した自然な対話が可能です。
+Claude Chan は、Cloudflare Workers と Anthropic の Claude API を活用した Slack ボットです。世界中のデータセンターでの実行により、低レイテンシーな応答と高いスケーラビリティを実現しています。会話履歴は Cloudflare D1 に保存され、文脈を考慮した自然な対話が可能です。
 
 ## デモ
 
-![Claude Chan Demo](docs/images/demo.gif)
+![Claude Chan デモ](docs/images/demo.gif)
 
-## 主な機能
+## 機能
 
 ### 🎯 コア機能
 
@@ -47,12 +49,12 @@ Claude Chan は、Cloudflare Workers と Anthropic の Claude API を活用し�
 
 - [Cloudflare Workers](https://workers.cloudflare.com/)
 
-  - エッジでの実行による低レイテンシー
+  - 低レイテンシーな実行
   - グローバルな分散処理
   - 自動スケーリング
 
 - [Cloudflare D1](https://developers.cloudflare.com/d1/)
-  - エッジ最適化された SQLite データベース
+  - グローバル分散に最適化された SQLite データベース
   - 高速なクエリ処理
   - 自動バックアップ
 
@@ -96,7 +98,7 @@ Claude Chan は、Cloudflare Workers と Anthropic の Claude API を活用し�
   - 適切な利用枠の設定
 - Slack ワークスペース管理者権限
   - ボット用アプリの作成権限
-  - 必要なスコープの設定権限
+  - スコープ設定権限
 
 ## クイックスタート
 
@@ -166,7 +168,7 @@ database_name = "claudechan-db"
 database_id = "your-database-id"
 ```
 
-## 開発フロー
+## 開発
 
 ### ローカル開発
 
@@ -190,13 +192,13 @@ npx wrangler deploy --minify
 
 ## トラブルシューティング
 
-### D1 接続エラー
+### D1 接続の問題
 
 - ✅ `wrangler.toml`の設定確認
 - ✅ データベース ID の確認
 - ✅ ローカルデータベースの初期化確認
 
-### Slack 連携エラー
+### Slack 連携の問題
 
 - ✅ 環境変数の設定確認
 - ✅ アプリケーションのスコープ確認
@@ -218,20 +220,53 @@ npx wrangler deploy --minify
 - 🛡️ レート制限の設定
 - 🔐 Slack 署名の検証
 
-## 貢献ガイドライン
+## 貢献
 
-1. このリポジトリをフォーク
-2. 機能ブランチの作成
+### 開発フロー
+
+1. リポジトリをフォーク
+
+   - GitHub の[リポジトリページ](https://github.com/moritaniantech/claudechan)で「Fork」ボタンをクリック
+
+2. ローカル環境のセットアップ
+
    ```bash
-   git checkout -b feature/amazing-feature
+   # フォークしたリポジトリをクローン
+   git clone https://github.com/あなたのユーザー名/claudechan.git
+   cd claudechan
+
+   # 本家リポジトリを upstream として追加
+   git remote add upstream https://github.com/moritaniantech/claudechan.git
    ```
-3. 変更をコミット
+
+3. 開発用ブランチの作成
+
    ```bash
+   # 最新の develop ブランチを取得
+   git fetch upstream
+   git checkout develop
+   git merge upstream/develop
+
+   # 作業用ブランチを作成
+   git checkout -b feature/amazing-feature   # 機能追加の場合
+   git checkout -b fix/some-bug             # バグ修正の場合
+   ```
+
+4. 変更の作成とコミット
+
+   ```bash
+   git add .
    git commit -m '機能追加: 新機能の説明'
    ```
-4. プッシュと PR 作成
+
+5. 変更の公開とプルリクエスト
+
    ```bash
+   # フォークしたリポジトリにプッシュ
    git push origin feature/amazing-feature
+
+   # GitHubでプルリクエストを作成
+   # develop ブランチへのプルリクエストを作成してください
    ```
 
 ## ライセンス

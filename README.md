@@ -229,18 +229,51 @@ npx wrangler deploy --minify
 
 ## Contributing
 
+### Development Flow
+
 1. Fork the repository
-2. Create a feature branch
+
+   - Click the "Fork" button on the [repository page](https://github.com/moritaniantech/claudechan)
+
+2. Set up your local environment
+
    ```bash
-   git checkout -b feature/amazing-feature
+   # Clone your forked repository
+   git clone https://github.com/your-username/claudechan.git
+   cd claudechan
+
+   # Add the original repository as upstream
+   git remote add upstream https://github.com/moritaniantech/claudechan.git
    ```
-3. Commit changes
+
+3. Create a development branch
+
    ```bash
-   git commit -m 'Add: new feature'
+   # Get the latest develop branch
+   git fetch upstream
+   git checkout develop
+   git merge upstream/develop
+
+   # Create a working branch
+   git checkout -b feature/amazing-feature   # for new features
+   git checkout -b fix/some-bug             # for bug fixes
    ```
-4. Push and create PR
+
+4. Make and commit changes
+
    ```bash
+   git add .
+   git commit -m 'Add: description of new feature'
+   ```
+
+5. Publish changes and create a pull request
+
+   ```bash
+   # Push to your forked repository
    git push origin feature/amazing-feature
+
+   # Create a pull request on GitHub
+   # Please create pull requests against the develop branch
    ```
 
 ## License
