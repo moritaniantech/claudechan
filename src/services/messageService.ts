@@ -76,7 +76,7 @@ export class MessageService {
   ): AnthropicMessage[] {
     return records.map((record) => ({
       role: record.role,
-      content: record.text,
+      content: [{ type: "text", text: record.text }],
     }));
   }
 
@@ -87,26 +87,26 @@ export class MessageService {
       });
 
       try {
-        console.log(`PDFファイルの取得を開始: ${file.name}`);
+        logger.info(`PDFファイルの取得を開始: ${file.name}`);
         const response = await fetch(file.url_private);
-        console.log("PDFファイルの取得完了");
+        logger.info("PDFファイルの取得完了");
 
         // Base64エンコード
-        console.log("Base64エンコードを開始");
+        logger.info("Base64エンコードを開始");
         const arrayBuffer = await response.arrayBuffer();
         const base64 = Buffer.from(arrayBuffer).toString("base64");
-        console.log("Base64エンコード完了");
+        logger.info("Base64エンコード完了");
 
         // PDFの内容を解析
-        console.log("Anthropicによる解析を開始");
+        logger.info("Anthropicによる解析を開始");
         const analysis = await this.anthropic.analyzePdfContent(
           base64,
           event.text || ""
         );
-        console.log("Anthropicによる解析完了");
+        logger.info("Anthropicによる解析完了");
 
         // PDFの内容と解析結果を会話履歴に保存
-        console.log("データベースへの保存を開始");
+        logger.info("データベースへの保存を開始");
         await this.db.saveMessage({
           channelId: event.channel,
           timestamp: event.ts,
@@ -116,7 +116,7 @@ export class MessageService {
           }`,
           role: "user",
         });
-        console.log("データベースへの保存完了");
+        logger.info("データベースへの保存完了");
 
         // Anthropicの応答を保存
         const anthropicMessageTs = new Date().getTime().toString();
@@ -200,7 +200,7 @@ export class MessageService {
       // 現在のメッセージを追加
       anthropicMessages.push({
         role: "user",
-        content: text,
+        content: [{ type: "text", text }],
       });
 
       // Anthropic APIの応答を待機
@@ -295,7 +295,7 @@ export class MessageService {
       // 現在のメッセージを追加
       anthropicMessages.push({
         role: "user",
-        content: event.text || "",
+        content: [{ type: "text", text: event.text || "" }],
       });
 
       // Anthropic APIの応答を待機
@@ -422,7 +422,7 @@ export class MessageService {
       // 現在のメッセージを追加
       anthropicMessages.push({
         role: "user",
-        content: event.text || "",
+        content: [{ type: "text", text: event.text || "" }],
       });
 
       // Anthropic APIの応答を待機
@@ -476,7 +476,7 @@ export class MessageService {
   ): AnthropicMessage[] {
     return messages.map((message) => ({
       role: message.role,
-      content: message.text,
+      content: [{ type: "text", text: message.text }],
     }));
   }
 }
