@@ -36,7 +36,8 @@ export const createSlackEventHandler = (env: Env) => {
     db,
     anthropic,
     env.BOT_USER_ID,
-    slackClient
+    slackClient,
+    env
   );
 
   return async (c: Context<{ Bindings: Env }>) => {
