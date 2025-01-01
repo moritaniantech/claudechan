@@ -83,95 +83,118 @@ export class MessageService {
     }));
   }
 
-  private async handlePdfFile(file: any, event: any): Promise<boolean> {
-    if (file.mimetype === "application/pdf") {
-      logger.info("PDF file detected, processing...", {
-        filename: file.name,
-        fileSize: file.size,
-      });
-
-      try {
-        logger.info(`PDFファイルの取得を開始: ${file.name}`);
-        const response = await fetch(file.url_private, {
-          headers: {
-            Authorization: `Bearer ${this.env.SLACK_BOT_TOKEN}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-
-        logger.info("PDFファイルの取得完了");
-
-        // Base64エンコード
-        logger.info("Base64エンコードを開始");
-        const arrayBuffer = await response.arrayBuffer();
-        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-          throw new Error("Empty PDF file received");
-        }
-
-        const base64 = Buffer.from(arrayBuffer).toString("base64");
-        if (!base64) {
-          throw new Error("Failed to encode PDF to Base64");
-        }
-        logger.info("Base64エンコード完了", {
-          encodedLength: base64.length,
-        });
-
-        // PDFの内容を解析
-        logger.info("Anthropicによる解析を開始");
-        const analysis = await this.anthropic.analyzePdfContent(
-          base64,
-          event.text || ""
-        );
-        logger.info("Anthropicによる解析完了");
-
-        // PDFの内容と解析結果を会話履歴に保存
-        logger.info("データベースへの保存を開始");
-        await this.db.saveMessage({
-          channelId: event.channel,
-          timestamp: event.ts,
-          threadTimestamp: event.thread_ts || event.ts,
-          text: `PDFファイル「${file.name}」が共有されました。\n${
-            event.text || ""
-          }`,
-          role: "user",
-        });
-        logger.info("データベースへの保存完了");
-
-        // Anthropicの応答を保存
-        const anthropicMessageTs = new Date().getTime().toString();
-        await this.db.saveMessage({
-          channelId: event.channel,
-          timestamp: anthropicMessageTs,
-          threadTimestamp: event.thread_ts || event.ts,
-          text: analysis,
-          role: "assistant",
-        });
-
-        // 解析結果をSlackに送信
-        await this.slackClient.postMessage(
-          event.channel,
-          `PDFファイル「${file.name}」の解析結果:\n${analysis}`,
-          event.thread_ts || event.ts
-        );
-
-        return true;
-      } catch (error) {
-        console.error("PDFファイル処理中にエラーが発生:", error);
-        throw error;
-      }
-    }
-    return false;
-  }
-
   private async processPdfFiles(event: any): Promise<boolean> {
     if (event.files && event.files.length > 0) {
-      for (const file of event.files) {
-        if (await this.handlePdfFile(file, event)) {
-          return true;
+      let initialResponse: MessageResponse | null = null;
+      try {
+        // 初期レスポンスを投稿
+        initialResponse = await this.postInitialResponse(
+          event.channel,
+          event.thread_ts,
+          event.ts
+        );
+
+        if (!initialResponse.ts) {
+          logger.error(`Failed to get timestamp from initial response`);
+          throw new AppError(
+            "Failed to get timestamp from initial response",
+            null
+          );
         }
+
+        for (const file of event.files) {
+          if (file.mimetype === "application/pdf") {
+            logger.info("PDF file detected, processing...", {
+              filename: file.name,
+              fileSize: file.size,
+            });
+
+            logger.info(`PDFファイルの取得を開始: ${file.name}`);
+            const response = await fetch(file.url_private, {
+              headers: {
+                Authorization: `Bearer ${this.env.SLACK_BOT_TOKEN}`,
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+            }
+
+            logger.info("PDFファイルの取得完了");
+
+            // Base64エンコード
+            logger.info("Base64エンコードを開始");
+            const arrayBuffer = await response.arrayBuffer();
+            if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+              throw new Error("Empty PDF file received");
+            }
+
+            const base64 = Buffer.from(arrayBuffer).toString("base64");
+            if (!base64) {
+              throw new Error("Failed to encode PDF to Base64");
+            }
+            logger.info("Base64エンコード完了", {
+              encodedLength: base64.length,
+            });
+
+            // PDFの内容を解析
+            logger.info("Anthropicによる解析を開始");
+            const analysis = await this.anthropic.analyzePdfContent(
+              base64,
+              event.text || ""
+            );
+            logger.info("Anthropicによる解析完了");
+
+            // PDFの内容と解析結果を会話履歴に保存
+            logger.info("データベースへの保存を開始");
+            await this.db.saveMessage({
+              channelId: event.channel,
+              timestamp: event.ts,
+              threadTimestamp: event.thread_ts || event.ts,
+              text: `PDFファイル「${file.name}」が共有されました。\n${
+                event.text || ""
+              }`,
+              role: "user",
+            });
+            logger.info("データベースへの保存完了");
+
+            // Anthropicの応答を保存
+            const anthropicMessageTs = new Date().getTime().toString();
+            await this.db.saveMessage({
+              channelId: event.channel,
+              timestamp: anthropicMessageTs,
+              threadTimestamp: event.thread_ts || event.ts,
+              text: analysis,
+              role: "assistant",
+            });
+
+            // 解析結果でメッセージを更新
+            await this.updateMessage(
+              event.channel,
+              initialResponse.ts,
+              `PDFファイル「${file.name}」の解析結果:\n${analysis}`
+            );
+
+            return true;
+          }
+        }
+      } catch (error) {
+        logger.error("PDFファイル処理中にエラーが発生:", error);
+
+        // エラーメッセージの更新
+        if (initialResponse?.ts) {
+          try {
+            await this.updateMessage(
+              event.channel,
+              initialResponse.ts,
+              "申し訳ありません。PDFファイルの処理中にエラーが発生しました。しばらく待ってから再度お試しください。"
+            );
+          } catch (updateError) {
+            logger.error(`Failed to update error message`, updateError);
+          }
+        }
+
+        throw error;
       }
     }
     return false;
