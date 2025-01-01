@@ -78,50 +78,52 @@ export const createSlackEventHandler = (env: Env) => {
       // 非同期で後続の処理を実行
       if (body.type === "event_callback" && body.event) {
         const event = body.event;
-        // メインスレッドをブロックしないように、別の非同期タスクとして実行
-        (async () => {
-          logger.info("Processing event", { eventType: event.type });
+        // メインスレッドをブロックしないように、waitUntilを使用して非同期タスクを実行
+        c.executionCtx.waitUntil(
+          (async () => {
+            logger.info("Processing event", { eventType: event.type });
 
-          try {
-            switch (event.type) {
-              case "app_mention":
-                logger.info("Handling app mention event", {
-                  channel: event.channel,
-                  user: event.user,
-                  thread_ts: event.thread_ts,
-                });
-                await messageService.handleAppMention(event);
-                break;
-
-              case "message":
-                if (!event.subtype) {
-                  logger.info("Handling message event", {
+            try {
+              switch (event.type) {
+                case "app_mention":
+                  logger.info("Handling app mention event", {
                     channel: event.channel,
                     user: event.user,
                     thread_ts: event.thread_ts,
                   });
-                  await messageService.handleMessage(event);
-                } else {
-                  logger.info("Ignoring message with subtype", {
-                    subtype: event.subtype,
-                  });
-                }
-                break;
+                  await messageService.handleAppMention(event);
+                  break;
 
-              default:
-                logger.info("Ignoring unhandled event type", {
-                  type: event.type,
-                });
+                case "message":
+                  if (!event.subtype) {
+                    logger.info("Handling message event", {
+                      channel: event.channel,
+                      user: event.user,
+                      thread_ts: event.thread_ts,
+                    });
+                    await messageService.handleMessage(event);
+                  } else {
+                    logger.info("Ignoring message with subtype", {
+                      subtype: event.subtype,
+                    });
+                  }
+                  break;
+
+                default:
+                  logger.info("Ignoring unhandled event type", {
+                    type: event.type,
+                  });
+              }
+            } catch (error) {
+              logger.error("Error processing event", {
+                error,
+                eventType: event.type,
+              });
             }
-          } catch (error) {
-            logger.error("Error processing event", {
-              error,
-              eventType: event.type,
-            });
-          }
-        })().catch((error) => {
-          logger.error("Error in async event processing", error);
-        });
+          })().catch((error) => {
+            logger.error("Error in async event processing", error);
+          })
+        );
       }
       logger.debug("Send a response to Slack");
       return response;
