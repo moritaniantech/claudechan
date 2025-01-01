@@ -9,7 +9,9 @@
 
 Next-generation AI assistant for Slack. Delivering fast and scalable AI conversations through globally distributed data centers.
 
-[Demo](#demo) • [Features](#features) • [Quick Start](#quick-start) • [Setup](#detailed-setup) • [Contributing](#contributing)
+English | [日本語](README_ja.md)
+
+[Features](#features) • [Quick Start](#quick-start) • [Setup](#detailed-setup) • [Contributing](#contributing)
 
 </div>
 
@@ -18,10 +20,6 @@ Next-generation AI assistant for Slack. Delivering fast and scalable AI conversa
 ## Overview
 
 Claude Chan is a Slack bot powered by Cloudflare Workers and Anthropic's Claude API. It provides low-latency responses and high scalability through global data centers. Conversations are stored in Cloudflare D1, enabling natural dialogue with context awareness.
-
-## Demo
-
-![Claude Chan Demo](docs/images/demo.gif)
 
 ## Features
 
