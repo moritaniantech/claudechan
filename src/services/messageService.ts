@@ -12,7 +12,8 @@ export class MessageService {
     private db: DatabaseService,
     private anthropic: AnthropicService,
     private botUserId: string,
-    private slackClient: SlackClient
+    private slackClient: SlackClient,
+    private env: Env
   ) {}
 
   private isFromBot(userId: string): boolean {
@@ -174,95 +175,6 @@ export class MessageService {
       }
     }
     return false;
-  }
-
-  private async processMessage(
-    userId: string,
-    text: string,
-    channelId: string,
-    timestamp: string,
-    threadTs?: string
-  ): Promise<void> {
-    // Botからのメッセージは無視
-    if (this.isFromBot(userId)) return;
-
-    try {
-      // スレッドIDが存在しない場合は処理を終了
-      if (!threadTs) {
-        logger.info("Skipping message without thread_ts");
-        return;
-      }
-
-      // メッセージにBotのメンションが含まれている場合は無視
-      if (text.includes(`<@${this.botUserId}>`)) {
-        logger.info("Skipping message with bot mention");
-        return;
-      }
-
-      // スレッド内のメッセージを確認
-      const threadMessages = await this.db.getThreadMessages(threadTs);
-      if (threadMessages.length === 0) {
-        logger.info("Skipping message without existing thread history");
-        return;
-      }
-
-      // 初期レスポンスを投稿
-      const initialResponse = await this.postInitialResponse(
-        channelId,
-        threadTs,
-        timestamp
-      );
-
-      if (!initialResponse.ts) {
-        throw new AppError(
-          "Failed to get timestamp from initial response",
-          null
-        );
-      }
-
-      // 会話履歴の取得
-      const messages = await this.db.getThreadMessages(threadTs);
-      const anthropicMessages = this.formatMessagesForAnthropic(messages);
-
-      // 現在のメッセージを追加
-      anthropicMessages.push({
-        role: "user",
-        content: [{ type: "text", text }],
-      });
-
-      // Anthropic APIの応答を待機
-      const response = await this.anthropic.generateResponse(anthropicMessages);
-
-      // メッセージの更新を実行（リトライ機能付き）
-      await this.updateMessage(channelId, initialResponse.ts, response);
-
-      // 会話履歴の保存
-      await this.db.saveMessage({
-        channelId,
-        timestamp,
-        threadTimestamp: threadTs,
-        text,
-        role: "user",
-      });
-    } catch (error) {
-      logger.error("Error processing message", {
-        error,
-        userId,
-        channelId,
-        threadTs,
-      });
-
-      // エラーメッセージを投稿
-      if (timestamp) {
-        await this.slackClient.postMessage(
-          channelId,
-          "申し訳ありません。メッセージの処理中にエラーが発生しました。しばらく待ってから再度お試しください。",
-          threadTs || timestamp
-        );
-      }
-
-      throw new AppError("Failed to process message", error);
-    }
   }
 
   async handleAppMention(event: any): Promise<void> {
@@ -485,15 +397,5 @@ export class MessageService {
 
       throw error;
     }
-  }
-
-  private convertToAnthropicMessages(
-    messages: DatabaseRecord[],
-    currentMessage: string
-  ): AnthropicMessage[] {
-    return messages.map((message) => ({
-      role: message.role,
-      content: [{ type: "text", text: message.text }],
-    }));
   }
 }

@@ -245,7 +245,7 @@ npx wrangler deploy --minify
 
 ## License
 
-[MIT License](LICENSE) © 2024 Tanian
+[MIT License](LICENSE) © 2024 moritaniantech
 
 ## Author
 
