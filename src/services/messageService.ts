@@ -312,6 +312,12 @@ export class MessageService {
       return;
     }
 
+    // Botへのメンションが含まれている場合は無視
+    if (event.text && event.text.includes(`<@${this.botUserId}>`)) {
+      logger.info(`Ignoring message with bot mention`);
+      return;
+    }
+
     // PDFファイルが添付されている場合は専用の処理を行う
     if (event.files && event.files.length > 0) {
       logger.debug(`PDF files detected`, {
@@ -373,12 +379,6 @@ export class MessageService {
         role: "user",
         content: [{ type: "text", text: event.text || "" }],
       });
-
-      // メッセージにBotのメンションが含まれている場合は無視
-      if (event.text.includes(`<@${this.botUserId}>`)) {
-        logger.info("Skipping message with bot mention");
-        return;
-      }
 
       // Anthropic APIの応答を待機
       logger.debug(`Requesting Anthropic API response`);
