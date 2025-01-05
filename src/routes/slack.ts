@@ -42,7 +42,7 @@ export const createSlackEventHandler = (env: Env) => {
 
   return async (c: Context<{ Bindings: Env }>) => {
     const requestId = getRequestId(c);
-    console.log(`Processing Slack event with request ID: ${requestId}`);
+    logger.info(`Processing Slack event with request ID: ${requestId}`);
 
     try {
       // Verify Slack request signature
