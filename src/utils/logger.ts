@@ -1,15 +1,17 @@
 import { Context } from "hono";
 import { Env } from "../types";
+import { getRequestId } from "./context";
 
 class Logger {
   private requestId: string = "default";
 
   updateContext(c: Context<{ Bindings: Env }>) {
-    this.requestId = c.get("requestId");
+    this.requestId = getRequestId(c);
   }
 
   private formatMessage(level: string, message: string, data?: any): string {
-    const baseMessage = `[${level}][${this.requestId}] ${message}`;
+    const timestamp = new Date().toISOString();
+    const baseMessage = `[${level}][${this.requestId}][${timestamp}] ${message}`;
     return data ? `${baseMessage} ${JSON.stringify(data)}` : baseMessage;
   }
 
