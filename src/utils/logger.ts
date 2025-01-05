@@ -10,7 +10,6 @@ class Logger {
   }
 
   private formatMessage(level: string, message: string, data?: any): string {
-    const timestamp = new Date().toISOString();
     const baseMessage = `[${level}][${this.requestId}] ${message}`;
     return data ? `${baseMessage} ${JSON.stringify(data)}` : baseMessage;
   }

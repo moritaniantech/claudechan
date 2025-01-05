@@ -3,18 +3,15 @@ import { Env, RequestContext } from "../types";
 
 declare module "hono" {
   interface ContextVariableMap {
+    requestId: string;
     requestContext: RequestContext;
   }
-}
-
-export function generateRequestId(): string {
-  return crypto.randomUUID();
 }
 
 export function initializeRequestContext(c: Context<{ Bindings: Env }>) {
   if (!c.get("requestContext")) {
     c.set("requestContext", {
-      requestId: generateRequestId(),
+      requestId: c.var.requestId,
     });
   }
 }
@@ -26,5 +23,5 @@ export function getRequestContext(
 }
 
 export function getRequestId(c: Context<{ Bindings: Env }>): string {
-  return getRequestContext(c).requestId;
+  return c.var.requestId;
 }

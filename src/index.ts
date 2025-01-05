@@ -1,10 +1,14 @@
 import { Hono } from "hono";
+import { requestId } from "hono/request-id";
 import { Env } from "./types";
 import { createSlackEventHandler } from "./routes/slack";
 import { initializeRequestContext } from "./utils/context";
 import { updateLoggerContext } from "./utils/logger";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// リクエストIDの生成ミドルウェア
+app.use("*", requestId());
 
 // リクエストコンテキストの初期化ミドルウェア
 app.use("*", async (c, next) => {
