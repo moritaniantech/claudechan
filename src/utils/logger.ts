@@ -1,30 +1,32 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { getRequestId } from "./context";
 
 class Logger {
   private requestId: string = "default";
 
   updateContext(c: Context<{ Bindings: Env }>) {
-    this.requestId = getRequestId(c);
+    this.requestId = c.get("requestId");
+  }
+
+  private formatMessage(level: string, message: string, data?: any): string {
+    const baseMessage = `[${level}][${this.requestId}] ${message}`;
+    return data ? `${baseMessage} ${JSON.stringify(data)}` : baseMessage;
   }
 
   info(message: string, data?: any) {
-    console.log(
-      `[INFO][${this.requestId}] ${message}`,
-      data ? JSON.stringify(data) : ""
-    );
+    console.log(this.formatMessage("INFO", message, data));
   }
 
   error(message: string, error?: any) {
-    console.error(`[ERROR][${this.requestId}] ${message}`, error);
+    console.error(this.formatMessage("ERROR", message, error));
   }
 
   debug(message: string, data?: any) {
-    console.debug(
-      `[DEBUG][${this.requestId}] ${message}`,
-      data ? JSON.stringify(data) : ""
-    );
+    console.debug(this.formatMessage("DEBUG", message, data));
+  }
+
+  warn(message: string, data?: any) {
+    console.warn(this.formatMessage("WARN", message, data));
   }
 }
 
